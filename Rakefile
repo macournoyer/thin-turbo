@@ -11,3 +11,4 @@ Dir['tasks/**/*.rake'].each { |rake| load rake }
 task :default => :spec
 
 ext_task :thin_parser
+ext_task :thin_backend
