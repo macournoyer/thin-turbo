@@ -35,6 +35,7 @@ typedef struct http_parser {
   element_cb query_string;
   element_cb http_version;
   element_cb header_done;
+  element_cb content_length;
   
 } http_parser;
 

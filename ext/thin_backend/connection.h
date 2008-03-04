@@ -27,6 +27,7 @@ struct thin_connection {
   struct thin_buffer write_buffer;
   
   http_parser parser;
+  VALUE env;
 
   ev_io read_watcher;
   ev_io write_watcher;  
