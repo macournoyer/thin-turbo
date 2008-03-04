@@ -51,10 +51,17 @@ VALUE thin_backend_start(VALUE self)
   if (listen(backend->fd, LISTEN_BACKLOG) == -1)
     perror("listen");
   
-  /* initialise an io watcher, then start it */
-  ev_io_init(&backend->accept_watcher, thin_backend_accept, backend->fd, EV_READ | EV_ERROR);
+  /* initialise io watchers */
+  ev_io_init(&backend->accept_watcher, thin_backend_accept_cb, backend->fd, EV_READ | EV_ERROR);
   backend->accept_watcher.data = backend;
   ev_io_start(backend->loop, &backend->accept_watcher);
+  
+  /* initialise signals watchers */
+  ev_signal_init(&backend->signal_watcher, thin_backend_signal_cb, SIGINT);
+  backend->signal_watcher.data = backend;
+  ev_signal_start(backend->loop, &backend->signal_watcher);
+  
+  ev_loop(backend->loop, 0);
   
   return Qtrue;
 }
@@ -75,13 +82,13 @@ VALUE thin_backend_stop(VALUE self)
   DATA_GET(self, thin_backend, backend);
   
   ev_io_stop(backend->loop, &backend->accept_watcher);
-  backend->open = 0;  
+  backend->open = 0;
   close(backend->fd);
   
   return Qtrue;
 }
 
-void thin_backend_accept(EV_P_ struct ev_io *watcher, int revents)
+void thin_backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   struct thin_backend *server = watcher->data;
   struct sockaddr_in remote_addr;
@@ -95,6 +102,13 @@ void thin_backend_accept(EV_P_ struct ev_io *watcher, int revents)
   assert(0 <= fcntl(fd, F_SETFL, flags | O_NONBLOCK));
   
   thin_start_connection(server, fd, remote_addr);
+}
+
+void thin_backend_signal_cb(EV_P_ struct ev_signal *watcher, int revents)
+{
+  struct thin_backend *backend = watcher->data;
+  
+  ev_unloop(backend->loop, EVUNLOOP_ALL);
 }
 
 void thin_backend_free(struct thin_backend *backend)
