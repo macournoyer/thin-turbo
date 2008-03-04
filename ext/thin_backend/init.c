@@ -11,4 +11,5 @@ void Init_thin_backend()
   rb_define_method(cBackend, "initialize", thin_backend_init, 2);
   rb_define_method(cBackend, "start", thin_backend_start, 0);
   rb_define_method(cBackend, "stop", thin_backend_stop, 0);
+  rb_define_method(cBackend, "process", thin_backend_process, 0);
 }

@@ -13,19 +13,18 @@
 void thin_start_connection(struct thin_backend *server, int fd, struct sockaddr_in remote_addr)
 {
   // TODO manage a pool of reusable connections
-  struct thin_connection connection;
-  connection.open = 0;
-  connection.read_buffer.data = malloc(1024);
-  connection.read_buffer.len = 1024;      
+  struct thin_connection *connection = malloc(sizeof(struct thin_connection));
+  connection->open = 0;
+  connection->read_buffer.data = malloc(1024);
+  connection->read_buffer.len = 1024;      
   
-  connection.fd = fd;
-  connection.remote_addr = remote_addr;
-  connection.open = 1;
-    
-  ev_io_init(&connection.read_watcher, thin_connection_recv, connection.fd, EV_READ | EV_ERROR);
-  connection.read_watcher.data = &connection;
-  ev_io_start(server->loop, &connection.read_watcher);
-  ev_loop(server->loop, 0);
+  connection->fd = fd;
+  connection->remote_addr = remote_addr;
+  connection->open = 1;
+  
+  ev_io_init(&connection->read_watcher, thin_connection_recv, connection->fd, EV_READ | EV_ERROR);
+  connection->read_watcher.data = connection;
+  ev_io_start(server->loop, &connection->read_watcher);
 }
 
 void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents)

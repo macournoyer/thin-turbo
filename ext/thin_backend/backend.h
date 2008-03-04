@@ -30,6 +30,7 @@ struct thin_backend {
 
 VALUE thin_backend_init(VALUE self, VALUE address, VALUE port);
 VALUE thin_backend_start(VALUE self);
+VALUE thin_backend_process(VALUE self);
 VALUE thin_backend_stop(VALUE self);
 void thin_backend_accept(EV_P_ struct ev_io *watcher, int revents);
 void thin_backend_free(struct thin_backend *backend);

@@ -25,6 +25,8 @@ VALUE thin_backend_init(VALUE self, VALUE address, VALUE port)
   backend->local_addr.sin_port = htons(backend->port);
   backend->local_addr.sin_addr.s_addr = inet_addr(backend->address);
   
+  backend->loop = ev_default_loop(0);
+  
   return self;
 }
 
@@ -48,16 +50,21 @@ VALUE thin_backend_start(VALUE self)
 
   if (listen(backend->fd, LISTEN_BACKLOG) == -1)
     perror("listen");
-    
-  backend->loop = ev_default_loop(0);
   
   /* initialise an io watcher, then start it */
   ev_io_init(&backend->accept_watcher, thin_backend_accept, backend->fd, EV_READ | EV_ERROR);
   backend->accept_watcher.data = backend;
   ev_io_start(backend->loop, &backend->accept_watcher);
   
-  /* loop till timeout or data ready */
-  ev_loop(backend->loop, 0);
+  return Qtrue;
+}
+
+VALUE thin_backend_process(VALUE self)
+{
+  struct thin_backend *backend = NULL;
+  DATA_GET(self, thin_backend, backend);
+  
+  ev_loop(backend->loop, EVLOOP_ONESHOT);
   
   return Qtrue;
 }
