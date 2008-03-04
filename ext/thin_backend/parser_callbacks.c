@@ -1,3 +1,12 @@
+#include <assert.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "ruby.h"
+#include "ext_help.h"
+#include "parser.h"
+#include "parser_callbacks.h"
+
 /** Defines common length and error messages for input length validation. */
 #define DEF_MAX_LENGTH(N,length) const size_t MAX_##N##_LENGTH = length; const char *MAX_##N##_LENGTH_ERR = "HTTP element " # N  " is longer than the " # length " allowed length."
 
@@ -31,25 +40,6 @@ static VALUE global_server_port;
 static VALUE global_path_info;
 static VALUE global_content_length;
 static VALUE global_http_host;
-
-void thin_parser_cb_init(VALUE module)
-{
-  eParserError = rb_define_class_under(module, "InvalidRequest", rb_eIOError);
-  
-  DEF_GLOBAL(http_prefix, "HTTP_");
-  DEF_GLOBAL(request_method, "REQUEST_METHOD");  
-  DEF_GLOBAL(request_uri, "REQUEST_URI");
-  DEF_GLOBAL(fragment, "FRAGMENT");
-  DEF_GLOBAL(request_path, "REQUEST_PATH");
-  DEF_GLOBAL(query_string, "QUERY_STRING");
-  DEF_GLOBAL(http_version, "HTTP_VERSION");
-  DEF_GLOBAL(request_body, "REQUEST_BODY");
-  DEF_GLOBAL(server_name, "SERVER_NAME");
-  DEF_GLOBAL(server_port, "SERVER_PORT");
-  DEF_GLOBAL(path_info, "PATH_INFO");
-  DEF_GLOBAL(content_length, "CONTENT_LENGTH");
-  DEF_GLOBAL(http_host, "HTTP_HOST");
-}
 
 void http_field_cb(void *data, const char *field, size_t flen, const char *value, size_t vlen)
 {
@@ -142,4 +132,37 @@ void content_length_cb(void *data, const char *at, size_t length)
   thin_connection *connection = (thin_connection*)(data);
   VALUE val = rb_str_new(at, length);
   rb_hash_aset(connection->env, global_content_length, val);
+}
+
+void thin_parser_callbacks_init(VALUE module)
+{
+  eParserError = rb_define_class_under(module, "InvalidRequest", rb_eIOError);
+  
+  DEF_GLOBAL(http_prefix, "HTTP_");
+  DEF_GLOBAL(request_method, "REQUEST_METHOD");  
+  DEF_GLOBAL(request_uri, "REQUEST_URI");
+  DEF_GLOBAL(fragment, "FRAGMENT");
+  DEF_GLOBAL(request_path, "REQUEST_PATH");
+  DEF_GLOBAL(query_string, "QUERY_STRING");
+  DEF_GLOBAL(http_version, "HTTP_VERSION");
+  DEF_GLOBAL(request_body, "REQUEST_BODY");
+  DEF_GLOBAL(server_name, "SERVER_NAME");
+  DEF_GLOBAL(server_port, "SERVER_PORT");
+  DEF_GLOBAL(path_info, "PATH_INFO");
+  DEF_GLOBAL(content_length, "CONTENT_LENGTH");
+  DEF_GLOBAL(http_host, "HTTP_HOST");
+}
+
+void thin_setup_parser_callbacks(thin_connection *connection)
+{
+  http_parser_init(&(connection->parser));
+  connection->parser.data = connection;
+  connection->parser.http_field     = http_field_cb;
+  connection->parser.request_method = request_method_cb;
+  connection->parser.request_uri    = request_uri_cb;
+  connection->parser.fragment       = fragment_cb;
+  connection->parser.request_path   = request_path_cb;
+  connection->parser.query_string   = query_string_cb;
+  connection->parser.http_version   = http_version_cb;
+  connection->parser.content_length = content_length_cb;
 }

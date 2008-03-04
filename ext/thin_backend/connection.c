@@ -9,7 +9,7 @@
 
 #include "ruby.h"
 #include "connection.h"
-#include "parser_callbacks.c"
+#include "parser_callbacks.h"
 
 void thin_start_connection(struct thin_backend *server, int fd, struct sockaddr_in remote_addr)
 {
@@ -26,16 +26,7 @@ void thin_start_connection(struct thin_backend *server, int fd, struct sockaddr_
   connection->open = 1;
   
   /* Initialize http_parser stuff */
-  http_parser_init(&(connection->parser));
-  connection->parser.data = connection;
-  connection->parser.http_field     = http_field_cb;
-  connection->parser.request_method = request_method_cb;
-  connection->parser.request_uri    = request_uri_cb;
-  connection->parser.fragment       = fragment_cb;
-  connection->parser.request_path   = request_path_cb;
-  connection->parser.query_string   = query_string_cb;
-  connection->parser.http_version   = http_version_cb;
-  connection->parser.content_length = content_length_cb;
+  thin_setup_parser_callbacks(connection);
   
   /* Initialize libev stuff */
   ev_io_init(&connection->read_watcher, thin_connection_recv, connection->fd, EV_READ | EV_ERROR);
@@ -75,11 +66,15 @@ void thin_connection_send(EV_P_ struct ev_io *watcher, int revents)
     return;
   }
   
-  char *msg = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nhi";
   struct thin_connection *connection = watcher->data;
   assert(&connection->write_watcher == watcher);
 
-  if (send(connection->fd, msg, strlen(msg), 0) < 0)
+  VALUE val = rb_str_new("PATH_INFO", 9);
+  VALUE inspect = rb_hash_aref(connection->env, val);
+  char *msg = RSTRING(inspect)->ptr;
+  int len = RSTRING(inspect)->len;
+  
+  if (send(connection->fd, msg, len, 0) < 0)
     perror("send");
 
   watcher->cb = thin_connection_close;

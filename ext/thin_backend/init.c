@@ -2,13 +2,11 @@
 #include "backend.h"
 #include "connection.h"
 
-void thin_parser_cb_init(VALUE module);
-
 void Init_thin_backend()
 {
   VALUE mThin = rb_define_module("Thin");
   
-  thin_parser_cb_init(mThin);
+  thin_parser_callbacks_init(mThin);
   
   cBackend = rb_define_class_under(mThin, "Backend", rb_cObject);
   rb_define_alloc_func(cBackend, thin_backend_alloc);
