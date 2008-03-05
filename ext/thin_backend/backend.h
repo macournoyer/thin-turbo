@@ -14,8 +14,6 @@
 #define LISTEN_BACKLOG       300     // how many pending connections queue will hold
 #define BUFFER_SIZE          1024
 
-static VALUE cBackend;
-
 typedef struct thin_backend thin_backend;
 typedef struct thin_buffer thin_buffer;
 typedef struct thin_connection thin_connection;
@@ -35,6 +33,8 @@ struct thin_connection {
   
   http_parser parser;
   VALUE env;
+  
+  struct thin_backend *backend;
 
   ev_io read_watcher;
   ev_io write_watcher;  
@@ -51,6 +51,8 @@ struct thin_backend {
   ev_io accept_watcher;
   ev_signal signal_watcher;
   
+  VALUE rb_obj;
+  
   struct thin_connection connections[CONNECTION_POOL_SIZE];
   
   struct ev_loop *loop;
@@ -58,6 +60,7 @@ struct thin_backend {
 
 VALUE thin_backend_init(VALUE self, VALUE address, VALUE port);
 VALUE thin_backend_start(VALUE self);
+VALUE thin_backend_loop(VALUE self);
 VALUE thin_backend_process(VALUE self);
 VALUE thin_backend_stop(VALUE self);
 void thin_backend_accept_cb(EV_P_ struct ev_io *watcher, int revents);

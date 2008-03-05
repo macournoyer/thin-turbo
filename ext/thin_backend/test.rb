@@ -1,18 +1,17 @@
 require 'thin_backend'
 
+class Thin::Backend
+  def process(env)
+    puts env.inspect
+  end
+end
+
 b = Thin::Backend.new('0.0.0.0', 4000)
-# trap('INT') do
-#   puts 'Received INT signal'
-#   @running = false
-# end
 
 puts 'Listening on 0.0.0.0:4000'
-# @running = true
 b.start
 
-# while @running
-#   b.process
-# end
+b.loop!
 
 puts 'Stopping ...'
 b.stop

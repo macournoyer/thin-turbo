@@ -9,6 +9,7 @@
 
 #include "backend.h"
 
+void thin_connection_init();
 void thin_start_connection(struct thin_backend *backend, int fd, struct sockaddr_in remote_addr);
 void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents);
 void thin_connection_send(EV_P_ struct ev_io *watcher, int revents);

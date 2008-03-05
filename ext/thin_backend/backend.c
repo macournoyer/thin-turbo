@@ -61,20 +61,20 @@ VALUE thin_backend_start(VALUE self)
   backend->signal_watcher.data = backend;
   ev_signal_start(backend->loop, &backend->signal_watcher);
   
+  return Qtrue;
+}
+
+VALUE thin_backend_loop(VALUE self)
+{
+  struct thin_backend *backend = NULL;
+  DATA_GET(self, thin_backend, backend);
+  
   ev_loop(backend->loop, 0);
   
   return Qtrue;
 }
 
-VALUE thin_backend_process(VALUE self)
-{
-  struct thin_backend *backend = NULL;
-  DATA_GET(self, thin_backend, backend);
-  
-  ev_loop(backend->loop, EVLOOP_ONESHOT);
-  
-  return Qtrue;
-}
+VALUE thin_backend_process(VALUE self) {;}
 
 VALUE thin_backend_stop(VALUE self)
 {
@@ -120,6 +120,9 @@ void thin_backend_free(struct thin_backend *backend)
 VALUE thin_backend_alloc(VALUE klass)
 {
   thin_backend *backend = ALLOC_N(thin_backend, 1);
-
-  return Data_Wrap_Struct(klass, NULL, thin_backend_free, backend);
+  VALUE obj = Data_Wrap_Struct(klass, NULL, thin_backend_free, backend);
+  
+  backend->rb_obj = obj;
+  
+  return obj;
 }

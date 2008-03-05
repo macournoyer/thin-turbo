@@ -8,9 +8,18 @@
 #include <stdlib.h>
 
 #include "ruby.h"
+#include "backend.h"
 #include "connection.h"
 #include "parser.h"
 #include "parser_callbacks.h"
+
+static VALUE sInternedProcess;
+
+void thin_connection_init()
+{
+  /* Intern some Ruby string */
+  sInternedProcess = rb_intern("process");
+}
 
 void thin_start_connection(struct thin_backend *backend, int fd, struct sockaddr_in remote_addr)
 {
@@ -21,6 +30,7 @@ void thin_start_connection(struct thin_backend *backend, int fd, struct sockaddr
   while(connection == NULL || connection->open)
     connection = &backend->connections[i++];
   
+  connection->backend = backend;
   connection->env = rb_hash_new();
   
   connection->fd = fd;
@@ -40,6 +50,7 @@ void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents)
 {
   struct thin_connection *connection = watcher->data;
   assert(&connection->read_watcher == watcher);
+  VALUE response = Qnil;
   
   connection->read_buffer.len = recv(connection->fd,
                                      connection->read_buffer.data,
@@ -54,6 +65,10 @@ void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents)
                       connection->read_buffer.data,
                       connection->read_buffer.len,
                       connection->parser.nread);
+  
+  /* Call the backend to process the request */
+  /* TODO use the returned response! */
+  response = rb_funcall(connection->backend->rb_obj, sInternedProcess, 1, connection->env);
   
   /* start watching writable state */
   ev_io_init(&connection->write_watcher, thin_connection_send, connection->fd, EV_WRITE | EV_ERROR);
