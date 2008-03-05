@@ -53,22 +53,26 @@ void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents)
   VALUE response = Qnil;
   
   connection->read_buffer.len = recv(connection->fd,
-                                     connection->read_buffer.data,
+                                     connection->read_buffer.data.ary,
                                      BUFFER_SIZE,
                                      0);
   
   /* mark the end of the string */
-  connection->read_buffer.data[connection->read_buffer.len] = '\0';
+  connection->read_buffer.data.ary[connection->read_buffer.len] = '\0';
   
   /* parse the damn thing to connection->env */
   http_parser_execute(&connection->parser,
-                      connection->read_buffer.data,
+                      connection->read_buffer.data.ary,
                       connection->read_buffer.len,
                       connection->parser.nread);
-  
+
   /* Call the backend to process the request */
-  /* TODO use the returned response! */
+  /* TODO response can arrive in multiple chunks... wait for the whole thing to arrive! */
   response = rb_funcall(connection->backend->rb_obj, sInternedProcess, 1, connection->env);
+  connection->status = FIX2INT(rb_ary_entry(response, 0));
+  /* TODO header */
+  connection->body.data.ptr = RSTRING_PTR(rb_ary_entry(response, 2));
+  connection->body.len = RSTRING_LEN(rb_ary_entry(response, 2));
   
   /* start watching writable state */
   ev_io_init(&connection->write_watcher, thin_connection_send, connection->fd, EV_WRITE | EV_ERROR);
@@ -85,13 +89,16 @@ void thin_connection_send(EV_P_ struct ev_io *watcher, int revents)
   
   struct thin_connection *connection = watcher->data;
   assert(&connection->write_watcher == watcher);
-
-  VALUE val = rb_str_new("PATH_INFO", 9);
-  VALUE inspect = rb_hash_aref(connection->env, val);
-  char *msg = RSTRING(inspect)->ptr;
-  int len = RSTRING(inspect)->len;
-  // char *msg = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: 2\r\n\r\nhi";
-  // int len = strlen(msg);
+  /* get rid of that malloc */
+  char *msg = (char *) malloc(connection->body.len + 100);
+  int len = 0;
+  
+  sprintf(msg,
+          "HTTP/1.1 %d OK\r\nContent-Type: text/html\r\nContent-Length: %d\r\n\r\n%s",
+          connection->status,
+          connection->body.len,
+          connection->body.data.ptr);
+  len = strlen(msg);
   
   if (send(connection->fd, msg, len, 0) < 0)
     perror("send");

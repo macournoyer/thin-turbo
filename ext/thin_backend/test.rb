@@ -2,7 +2,7 @@ require 'thin_backend'
 
 class Thin::Backend
   def process(env)
-    puts env.inspect
+    [200, {}, 'ok']
   end
 end
 

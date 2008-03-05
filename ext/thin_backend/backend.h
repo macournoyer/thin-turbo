@@ -20,7 +20,10 @@ typedef struct thin_connection thin_connection;
 
 struct thin_buffer {
   size_t len;
-  char data[BUFFER_SIZE];
+  union data {
+    char ary[BUFFER_SIZE];
+    char *ptr;
+  } data;
 };
 
 struct thin_connection {
@@ -29,10 +32,13 @@ struct thin_connection {
   struct sockaddr_in remote_addr;
   
   struct thin_buffer read_buffer;
-  struct thin_buffer write_buffer;
   
   http_parser parser;
   VALUE env;
+  
+  int status;
+  /* TODO headers */
+  struct thin_buffer body;
   
   struct thin_backend *backend;
 
