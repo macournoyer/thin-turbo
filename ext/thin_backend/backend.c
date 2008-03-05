@@ -30,7 +30,7 @@ VALUE thin_backend_init(VALUE self, VALUE address, VALUE port)
   return self;
 }
 
-VALUE thin_backend_start(VALUE self)
+VALUE thin_backend_listen(VALUE self)
 {
   struct thin_backend *backend = NULL;
   DATA_GET(self, thin_backend, backend);
@@ -56,10 +56,7 @@ VALUE thin_backend_start(VALUE self)
   backend->accept_watcher.data = backend;
   ev_io_start(backend->loop, &backend->accept_watcher);
   
-  /* initialise signals watchers */
-  ev_signal_init(&backend->signal_watcher, thin_backend_signal_cb, SIGINT);
-  backend->signal_watcher.data = backend;
-  ev_signal_start(backend->loop, &backend->signal_watcher);
+  backend->open = 1;
   
   return Qtrue;
 }
@@ -69,20 +66,18 @@ VALUE thin_backend_loop(VALUE self)
   struct thin_backend *backend = NULL;
   DATA_GET(self, thin_backend, backend);
   
-  ev_loop(backend->loop, 0);
+  ev_loop(backend->loop, EVLOOP_ONESHOT);
   
   return Qtrue;
 }
 
-VALUE thin_backend_process(VALUE self) {;}
-
-VALUE thin_backend_stop(VALUE self)
+VALUE thin_backend_close(VALUE self)
 {
   struct thin_backend *backend = NULL;
   DATA_GET(self, thin_backend, backend);
   
-  ev_io_stop(backend->loop, &backend->accept_watcher);
   backend->open = 0;
+  ev_io_stop(backend->loop, &backend->accept_watcher);
   close(backend->fd);
   
   return Qtrue;
