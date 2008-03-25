@@ -32,6 +32,9 @@ VALUE thin_backend_init(VALUE self, VALUE address, VALUE port, VALUE app)
   thin_backend_t *backend = NULL;
   DATA_GET(self, thin_backend_t, backend);
   
+  backend->connections = thin_array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
+  thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+  
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
   backend->app = app;
@@ -64,7 +67,7 @@ VALUE thin_backend_listen(VALUE self)
   if (bind(backend->fd, (struct sockaddr *)&backend->local_addr, sizeof backend->local_addr) == -1)
     rb_sys_fail("bind");
 
-  if (listen(backend->fd, LISTEN_BACKLOG) == -1)
+  if (listen(backend->fd, THIN_LISTEN_BACKLOG) == -1)
     rb_sys_fail("listen");
   
   /* initialise io watchers */

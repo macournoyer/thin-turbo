@@ -19,10 +19,18 @@
 #include "ruby.h"
 #include "ext_help.h"
 #include "parser.h"
+#include "array.h"
 
-#define CONNECTION_POOL_SIZE 300
-#define LISTEN_BACKLOG       511
-#define BUFFER_SIZE          1024
+#ifdef __FreeBSD__
+#define THIN_LISTEN_BACKLOG    -1
+#else
+#define THIN_LISTEN_BACKLOG    511
+#endif
+#define THIN_CONNECTIONS_SIZE  300
+#define THIN_BUFFER_SIZE       1024
+
+#define THIN_OK     0
+#define THIN_ERROR -1
 
 typedef struct thin_backend_s thin_backend_t;
 typedef struct thin_buffer_s thin_buffer_t;
@@ -43,7 +51,7 @@ struct thin_connection_s {
   http_parser         parser;
   VALUE               env;
   
-  unsigned            status;
+  int                 status;
   VALUE               headers;
   thin_buffer_t       body;
   size_t              content_length;
@@ -67,7 +75,7 @@ struct thin_backend_s {
   
   VALUE               app;
   
-  thin_connection_t   connections[CONNECTION_POOL_SIZE];
+  thin_array_t       *connections;
   
   struct ev_loop     *loop;
 };
@@ -93,9 +101,7 @@ VALUE thin_backend_alloc(VALUE self);
 
 void thin_connection_init();
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void thin_connection_recv(EV_P_ struct ev_io *watcher, int revents);
-void thin_connection_send(EV_P_ struct ev_io *watcher, int revents);
-void thin_connection_close(EV_P_ struct ev_io *watcher, int revents);
+void thin_connections_create(thin_array_t *connections, size_t num);
 
 void thin_parser_callbacks_init(VALUE module);
 void thin_setup_parser_callbacks(thin_connection_t *connection);

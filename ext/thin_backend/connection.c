@@ -64,10 +64,13 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   thin_connection_t *connection = get_ev_data(connection, watcher, read);
   VALUE              response;
   size_t             len;
+  char              *new, *old;
+  
+  /* TODO alloc more mem when buffer full */
 
   len = recv(connection->fd,
-             connection->read_buffer.ptr,
-             BUFFER_SIZE,
+             connection->read_buffer.ptr + connection->read_buffer.len,
+             THIN_BUFFER_SIZE - connection->read_buffer.len,
              0);
   
   connection->read_buffer.len += len;
@@ -111,27 +114,60 @@ void thin_connection_init()
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr)
 {
   thin_connection_t *connection = NULL;
+  thin_connection_t *connections = backend->connections->items;
   int                i = 0;
   
   /* select the first closed connection */
-  while(connection == NULL || connection->open)
-    connection = &backend->connections[i++];
+  for (i = 0; i < backend->connections->nitems; i++) {
+    if (!connections[i].open) {
+      connection = &connections[i];
+      break;
+    }
+  }
   
+  /* no free connection found, add more */
+  if (connection == NULL) {
+    thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+    connection = &connections[++i];
+  }
+  
+  assert(connection != NULL);
+  assert(!connection->open);
+  
+  /* init connection */
   connection->loop = backend->loop;
   connection->backend = backend;
   connection->env = rb_hash_new();
   connection->content_length = 0;
-  
   connection->fd = fd;
   connection->remote_addr = remote_addr;
   connection->open = 1;
   
-  connection->read_buffer.ptr = (char *) malloc(BUFFER_SIZE);
+  /* alloc buffer only once */
+  if (connection->read_buffer.ptr == NULL) {
+    connection->read_buffer.ptr = (char *) malloc(THIN_BUFFER_SIZE);
+    if (connection->read_buffer.ptr == NULL)
+      rb_sys_fail("malloc");
+  }
   connection->read_buffer.len = 0;
   
-  /* Initialize http_parser stuff */
-  thin_setup_parser_callbacks(connection);
+  /* reinit parser */
+  http_parser_init(&connection->parser);
+  connection->parser.data = connection;
   
-  /* Initialize libev stuff */
+  /* init libev stuff */
   watch(connection, thin_connection_readable_cb, read, EV_READ);
+}
+
+void thin_connections_create(thin_array_t *connections, size_t num)
+{
+  thin_connection_t *connection;
+  int                i;
+  
+  for (i = 0; i <= num; ++i) {
+    connection = thin_array_push(connections);
+    
+    connection->read_buffer.ptr = NULL;
+    thin_setup_parser_callbacks(connection);
+  }
 }
