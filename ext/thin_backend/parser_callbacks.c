@@ -1,11 +1,4 @@
-#include <assert.h>
-#include <string.h>
-#include <ctype.h>
-
-#include "ruby.h"
-#include "ext_help.h"
-#include "parser.h"
-#include "parser_callbacks.h"
+#include "thin.h"
 
 /** Defines common length and error messages for input length validation. */
 #define DEF_MAX_LENGTH(N,length) const size_t MAX_##N##_LENGTH = length; const char *MAX_##N##_LENGTH_ERR = "HTTP element " # N  " is longer than the " # length " allowed length."
@@ -43,7 +36,7 @@ static VALUE global_http_host;
 
 void http_field_cb(void *data, const char *field, size_t flen, const char *value, size_t vlen)
 {
-  thin_connection *connection = (thin_connection*)(data);  
+  thin_connection_t *connection = (thin_connection_t*)(data);  
   char *ch, *end;
   VALUE v = Qnil;
   VALUE f = Qnil;
@@ -68,7 +61,7 @@ void http_field_cb(void *data, const char *field, size_t flen, const char *value
 
 void request_method_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -77,7 +70,7 @@ void request_method_cb(void *data, const char *at, size_t length)
 
 void request_uri_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = Qnil;
 
   VALIDATE_MAX_LENGTH(length, REQUEST_URI);
@@ -88,7 +81,7 @@ void request_uri_cb(void *data, const char *at, size_t length)
 
 void fragment_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = Qnil;
 
   VALIDATE_MAX_LENGTH(length, FRAGMENT);
@@ -99,7 +92,7 @@ void fragment_cb(void *data, const char *at, size_t length)
 
 void request_path_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = Qnil;
 
   VALIDATE_MAX_LENGTH(length, REQUEST_PATH);
@@ -111,7 +104,7 @@ void request_path_cb(void *data, const char *at, size_t length)
 
 void query_string_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = Qnil;
 
   VALIDATE_MAX_LENGTH(length, QUERY_STRING);
@@ -122,14 +115,20 @@ void query_string_cb(void *data, const char *at, size_t length)
 
 void http_version_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
   VALUE val = rb_str_new(at, length);
   rb_hash_aset(connection->env, global_http_version, val);
 }
 
 void content_length_cb(void *data, const char *at, size_t length)
 {
-  thin_connection *connection = (thin_connection*)(data);
+  thin_connection_t *connection = (thin_connection_t*)(data);
+  int                i, mult;
+  
+  connection->content_length = 0;
+  for (mult=1, i = length - 1; i >= 0; i--, mult *= 10)
+    connection->content_length += (at[i] - '0') * mult;
+
   VALUE val = rb_str_new(at, length);
   rb_hash_aset(connection->env, global_content_length, val);
 }
@@ -153,7 +152,7 @@ void thin_parser_callbacks_init(VALUE module)
   DEF_GLOBAL(http_host, "HTTP_HOST");
 }
 
-void thin_setup_parser_callbacks(thin_connection *connection)
+void thin_setup_parser_callbacks(thin_connection_t *connection)
 {
   http_parser_init(&(connection->parser));
   connection->parser.data = connection;

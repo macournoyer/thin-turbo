@@ -14,9 +14,9 @@
 #define REQUIRE_TYPE(V, T) if(TYPE(V) != T) rb_raise(rb_eTypeError, "Wrong argument type for " # V " required " # T);
 
 #ifdef DEBUG
-#define TRACE()  fprintf(stderr, "> %s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__)
+#define trace()  fprintf(stderr, "> %s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__)
 #else
-#define TRACE() 
+#define trace() 
 #endif
 
 #endif
