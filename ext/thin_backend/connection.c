@@ -46,7 +46,7 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   char              *msg;
   int                n;
 
-  /* get rid of that malloc */
+  /* TODO get rid of that malloc or do something less stupid! */
   msg = (char *) malloc(connection->body.len + 1024);
   
   n  = sprintf(msg, "HTTP/1.1 %d OK\r\n", connection->status);
@@ -55,7 +55,9 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   if (send(connection->fd, msg, n, 0) < 0)
     rb_sys_fail("send"); 
-
+  
+  free(msg); /* see, doesn't make sense... */
+  
   watcher->cb = thin_connection_closable_cb;
 }
 
@@ -66,7 +68,18 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   size_t             len;
   char              *new, *old;
   
-  /* TODO alloc more mem when buffer full */
+  /* alloc more mem when buffer full */
+  if (connection->read_buffer.len == connection->read_buffer.nalloc) {
+    /* TODO refactor this into a buffer.c file? */
+    old = connection->read_buffer.ptr;
+    new = (char *) malloc(connection->read_buffer.nalloc * 2);
+    if (new == NULL)
+      rb_sys_fail("malloc");
+    
+    connection->read_buffer.ptr = new;
+    connection->read_buffer.nalloc *= 2;
+    free(old);
+  }
 
   len = recv(connection->fd,
              connection->read_buffer.ptr + connection->read_buffer.len,
@@ -144,10 +157,12 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->open = 1;
   
   /* alloc buffer only once */
-  if (connection->read_buffer.ptr == NULL) {
+  if (connection->read_buffer.nalloc == 0) {
     connection->read_buffer.ptr = (char *) malloc(THIN_BUFFER_SIZE);
     if (connection->read_buffer.ptr == NULL)
       rb_sys_fail("malloc");
+    
+    connection->read_buffer.nalloc = THIN_BUFFER_SIZE;
   }
   connection->read_buffer.len = 0;
   
@@ -167,7 +182,7 @@ void thin_connections_create(thin_array_t *connections, size_t num)
   for (i = 0; i <= num; ++i) {
     connection = thin_array_push(connections);
     
-    connection->read_buffer.ptr = NULL;
+    connection->read_buffer.nalloc = 0;
     thin_setup_parser_callbacks(connection);
   }
 }

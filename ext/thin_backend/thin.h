@@ -38,6 +38,7 @@ typedef struct thin_connection_s thin_connection_t;
 
 struct thin_buffer_s {
   size_t  len;
+  size_t  nalloc;
   char   *ptr;
 };
 
