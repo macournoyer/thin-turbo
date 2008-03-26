@@ -9,11 +9,7 @@ void thin_connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
   
-  unwatch(connection, read);
-  unwatch(connection, write);
-
-  close(connection->fd);
-  connection->open = 0;
+  thin_connection_close(connection);
 }
 
 int thin_print_headers(thin_connection_t *connection, char *str)
@@ -45,6 +41,8 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
   char              *msg;
   int                n;
+  
+  /* TODO write in chunk */
 
   /* TODO get rid of that malloc or do something less stupid! */
   msg = (char *) malloc(connection->body.len + 1024);
@@ -149,6 +147,7 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   
   /* init connection */
   connection->loop = backend->loop;
+  connection->buffer_pool = backend->buffer_pool;
   connection->backend = backend;
   connection->env = rb_hash_new();
   connection->content_length = 0;
@@ -156,14 +155,11 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->remote_addr = remote_addr;
   connection->open = 1;
   
-  /* alloc buffer only once */
-  if (connection->read_buffer.nalloc == 0) {
-    connection->read_buffer.ptr = (char *) malloc(THIN_BUFFER_SIZE);
-    if (connection->read_buffer.ptr == NULL)
-      rb_sys_fail("malloc");
-    
-    connection->read_buffer.nalloc = THIN_BUFFER_SIZE;
-  }
+  /* alloc read buffer from pool */
+  connection->read_buffer.ptr = palloc(connection->buffer_pool, 1);
+  if (connection->read_buffer.ptr == NULL)
+    rb_sys_fail("palloc");
+  connection->read_buffer.nalloc = 1;
   connection->read_buffer.len = 0;
   
   /* reinit parser */
@@ -174,15 +170,27 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   watch(connection, thin_connection_readable_cb, read, EV_READ);
 }
 
-void thin_connections_create(thin_array_t *connections, size_t num)
+void thin_connections_create(array_t *connections, size_t num)
 {
   thin_connection_t *connection;
   int                i;
   
   for (i = 0; i <= num; ++i) {
-    connection = thin_array_push(connections);
+    connection = array_push(connections);
     
-    connection->read_buffer.nalloc = 0;
     thin_setup_parser_callbacks(connection);
   }
+}
+
+void thin_connection_close(thin_connection_t *connection)
+{
+  unwatch(connection, read);
+  unwatch(connection, write);
+
+  close(connection->fd);
+  
+  if (connection->read_buffer.ptr != NULL)
+    pfree(connection->buffer_pool, connection->read_buffer.ptr);
+  
+  connection->open = 0; 
 }

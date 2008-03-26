@@ -32,8 +32,10 @@ VALUE thin_backend_init(VALUE self, VALUE address, VALUE port, VALUE app)
   thin_backend_t *backend = NULL;
   DATA_GET(self, thin_backend_t, backend);
   
-  backend->connections = thin_array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
+  backend->connections = array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
   thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+  
+  backend->buffer_pool = pool_create(THIN_CONNECTIONS_SIZE, THIN_BUFFER_SIZE);
   
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
@@ -102,8 +104,11 @@ VALUE thin_backend_close(VALUE self)
 
 void thin_backend_free(thin_backend_t *backend)
 {
-  if (backend)
+  if (backend) {
+    array_destroy(backend->connections);
+    pool_destroy(backend->buffer_pool);
     free(backend);
+  }
 }
 
 VALUE thin_backend_alloc(VALUE klass)

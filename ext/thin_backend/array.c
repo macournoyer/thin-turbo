@@ -1,8 +1,8 @@
 #include "array.h"
 
-thin_array_t * thin_array_create(uint num, size_t size)
+array_t * array_create(uint num, size_t size)
 {
-  thin_array_t *a = (thin_array_t *) malloc(sizeof(thin_array_t));
+  array_t *a = (array_t *) malloc(sizeof(array_t));
   if (a == NULL)
     return NULL;
   
@@ -19,7 +19,7 @@ thin_array_t * thin_array_create(uint num, size_t size)
   return a;
 }
 
-void * thin_array_push(thin_array_t *a)
+void * array_push(array_t *a)
 {
   void   *item, *old, *new;
   size_t  size;
@@ -46,7 +46,7 @@ void * thin_array_push(thin_array_t *a)
   return item;
 }
 
-void thin_array_destroy(thin_array_t *a)
+void array_destroy(array_t *a)
 {
   void *items;
   

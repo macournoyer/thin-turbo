@@ -20,6 +20,7 @@
 #include "ext_help.h"
 #include "parser.h"
 #include "array.h"
+#include "palloc.h"
 
 #ifdef __FreeBSD__
 #define THIN_LISTEN_BACKLOG    -1
@@ -58,6 +59,7 @@ struct thin_connection_s {
   size_t              content_length;
   
   thin_backend_t     *backend;
+  pool_t             *buffer_pool;
 
   struct ev_loop     *loop;
   ev_io               read_watcher;
@@ -71,13 +73,13 @@ struct thin_backend_s {
   unsigned            open : 1;
   int                 fd;
   struct sockaddr_in  local_addr;
-
-  ev_io               accept_watcher;
   
   VALUE               app;
   
-  thin_array_t       *connections;
+  array_t            *connections;
+  pool_t             *buffer_pool;
   
+  ev_io               accept_watcher;
   struct ev_loop     *loop;
 };
 
@@ -102,7 +104,8 @@ VALUE thin_backend_alloc(VALUE self);
 
 void thin_connection_init();
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void thin_connections_create(thin_array_t *connections, size_t num);
+void thin_connections_create(array_t *connections, size_t num);
+void thin_connection_close(thin_connection_t *connection);
 
 void thin_parser_callbacks_init(VALUE module);
 void thin_setup_parser_callbacks(thin_connection_t *connection);
