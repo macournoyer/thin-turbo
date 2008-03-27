@@ -24,7 +24,7 @@ class Thin::Backend
 end
 
 app = proc do |env|
-  body = env.inspect
+  body = 'hello world!'
   [
     200,
     {

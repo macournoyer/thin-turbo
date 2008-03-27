@@ -163,5 +163,6 @@ void thin_setup_parser_callbacks(thin_connection_t *connection)
   connection->parser.request_path   = request_path_cb;
   connection->parser.query_string   = query_string_cb;
   connection->parser.http_version   = http_version_cb;
-  connection->parser.content_length = content_length_cb;
+  connection->parser.header_done    = NULL;
+  connection->parser.content_length = content_length_cb;  
 }
