@@ -33,7 +33,6 @@ app = proc do |env|
     },
     body
   ]
-  raise 'oops'
 end
 
 b = Thin::Backend.new('0.0.0.0', 4000, app)

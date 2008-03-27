@@ -88,7 +88,7 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   /* terminate string with null */
   memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
-  
+    
   /* parse the request into connection->env */
   len = http_parser_execute(&connection->parser,
                             connection->read_buffer.ptr,
@@ -112,6 +112,7 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
     } else {
       /* store response info and prepare for writing */
       connection->status   = FIX2INT(rb_ary_entry(response, 0));
+      /* FIXME mark as used to Ruby GC */
       connection->headers  = rb_ary_entry(response, 1);
       connection->body.ptr = RSTRING_PTR(rb_ary_entry(response, 2));
       connection->body.len = RSTRING_LEN(rb_ary_entry(response, 2));
@@ -154,14 +155,16 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   assert(!connection->open);
   
   /* init connection */
+  connection->open = 1;
   connection->loop = backend->loop;
   connection->buffer_pool = backend->buffer_pool;
   connection->backend = backend;
-  connection->env = rb_hash_new();
   connection->content_length = 0;
   connection->fd = fd;
   connection->remote_addr = remote_addr;
-  connection->open = 1;
+  
+  /* FIXME mark as used to Ruby GC */
+  connection->env = rb_hash_new();
   
   /* alloc read buffer from pool */
   connection->read_buffer.ptr = palloc(connection->buffer_pool, 1);
@@ -202,6 +205,8 @@ void thin_connection_close(thin_connection_t *connection)
     pfree(connection->buffer_pool, connection->read_buffer.ptr);
   connection->read_buffer.salloc = 0;
   connection->read_buffer.nalloc = 0;
+  
+  connection->env = Qnil;
   
   connection->open = 0; 
 }
