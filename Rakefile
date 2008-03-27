@@ -12,3 +12,7 @@ task :default => :spec
 
 ext_task :thin_parser
 ext_task :thin_backend
+
+task :test do
+  cd 'test' { sh 'make test' }
+end

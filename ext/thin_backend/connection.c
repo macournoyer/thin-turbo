@@ -39,23 +39,22 @@ int thin_print_headers(thin_connection_t *connection, char *str)
 void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
-  char              *msg;
-  int                n;
+  char              *resp;
+  int                n, sent;
   
   /* TODO write in chunk */
 
-  /* TODO get rid of that malloc or do something less stupid! */
-  msg = (char *) malloc(connection->body.len + 1024);
+  resp = (char *) palloc(connection->buffer_pool,
+                         connection->body.len / connection->buffer_pool->size + 1);
   
-  n  = sprintf(msg, "HTTP/1.1 %d OK\r\n", connection->status);
-  n += thin_print_headers(connection, (char *) msg + n);
-  n += sprintf((char *) msg + n, "\r\n%s", connection->body.ptr);
+  n  = sprintf(resp, "HTTP/1.1 %d OK\r\n", connection->status);
+  n += thin_print_headers(connection, (char *) resp + n);
+  n += sprintf((char *) resp + n, "\r\n%s", connection->body.ptr);
   
-  if (send(connection->fd, msg, n, 0) < 0)
-    rb_sys_fail("send"); 
+  sent = send(connection->fd, resp, n, 0);
+  /* TODO do something w/ sent, maybe buffer, not all sent? */
   
-  free(msg); /* see, doesn't make sense... */
-  
+  pfree(connection->buffer_pool, resp);
   watcher->cb = thin_connection_closable_cb;
 }
 
@@ -67,21 +66,22 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   char              *new, *old;
   
   /* alloc more mem when buffer full */
-  if (connection->read_buffer.len == connection->read_buffer.nalloc) {
-    /* TODO refactor this into a buffer.c file? */
+  if (connection->read_buffer.len >= connection->read_buffer.salloc) {
     old = connection->read_buffer.ptr;
-    new = (char *) malloc(connection->read_buffer.nalloc * 2);
+    new = (char *) palloc(connection->buffer_pool,
+                          connection->read_buffer.nalloc * 2);
     if (new == NULL)
-      rb_sys_fail("malloc");
+      rb_sys_fail("palloc");
     
     connection->read_buffer.ptr = new;
     connection->read_buffer.nalloc *= 2;
-    free(old);
+    connection->read_buffer.salloc *= 2;
+    pfree(connection->buffer_pool, old);
   }
 
   len = recv(connection->fd,
              connection->read_buffer.ptr + connection->read_buffer.len,
-             THIN_BUFFER_SIZE - connection->read_buffer.len,
+             connection->read_buffer.salloc - connection->read_buffer.len,
              0);
   
   connection->read_buffer.len += len;
@@ -160,6 +160,7 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   if (connection->read_buffer.ptr == NULL)
     rb_sys_fail("palloc");
   connection->read_buffer.nalloc = 1;
+  connection->read_buffer.salloc = connection->buffer_pool->size;
   connection->read_buffer.len = 0;
   
   /* reinit parser */
@@ -191,6 +192,8 @@ void thin_connection_close(thin_connection_t *connection)
   
   if (connection->read_buffer.ptr != NULL)
     pfree(connection->buffer_pool, connection->read_buffer.ptr);
+  connection->read_buffer.salloc = 0;
+  connection->read_buffer.nalloc = 0;
   
   connection->open = 0; 
 }

@@ -38,8 +38,9 @@ typedef struct thin_buffer_s thin_buffer_t;
 typedef struct thin_connection_s thin_connection_t;
 
 struct thin_buffer_s {
+  size_t  nalloc; /* num slices alloced */
+  size_t  salloc;   /* total size alloced */
   size_t  len;
-  size_t  nalloc;
   char   *ptr;
 };
 

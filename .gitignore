@@ -9,6 +9,8 @@ ext/*/vc60.pdb
 ext/*/*.so
 lib/*.bundle
 lib/*.so
+test/*.o
+test/*_test
 log
 spec/rails_app/log
 doc/rdoc/*
