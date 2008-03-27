@@ -16,6 +16,11 @@ class Thin::Backend
     puts 'Stopping ...'
     @running = false
   end
+  
+  def log_error(ex=$!)
+    puts "!! Unexpected error while processing request: #{ex.message}"
+    puts ex.backtrace.join("\n")
+  end
 end
 
 app = proc do |env|
@@ -28,6 +33,7 @@ app = proc do |env|
     },
     body
   ]
+  raise 'oops'
 end
 
 b = Thin::Backend.new('0.0.0.0', 4000, app)

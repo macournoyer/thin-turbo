@@ -75,6 +75,7 @@ struct thin_backend_s {
   int                 fd;
   struct sockaddr_in  local_addr;
   
+  VALUE               obj;
   VALUE               app;
   
   array_t            *connections;

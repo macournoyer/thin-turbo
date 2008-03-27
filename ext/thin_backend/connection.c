@@ -100,16 +100,24 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   if (http_parser_is_finished(&connection->parser) &&
       connection->read_buffer.len >= connection->content_length) {
     
-    /* Call the app to process the request */
-    response = rb_funcall(connection->backend->app, sInternedCall, 1, connection->env);
-  
-    connection->status   = FIX2INT(rb_ary_entry(response, 0));
-    connection->headers  = rb_ary_entry(response, 1);
-    connection->body.ptr = RSTRING_PTR(rb_ary_entry(response, 2));
-    connection->body.len = RSTRING_LEN(rb_ary_entry(response, 2));
-  
     unwatch(connection, read);
-    watch(connection, thin_connection_writable_cb, write, EV_WRITE);    
+    
+    /* Call the app to process the request */
+    response = rb_funcall_rescue(connection->backend->app, sInternedCall, 1, connection->env);
+    
+    if (response == Qundef) {
+      /* log any error */
+      rb_funcall(connection->backend->obj, rb_intern("log_error"), 0);
+      thin_connection_close(connection);
+    } else {
+      /* store response info and prepare for writing */
+      connection->status   = FIX2INT(rb_ary_entry(response, 0));
+      connection->headers  = rb_ary_entry(response, 1);
+      connection->body.ptr = RSTRING_PTR(rb_ary_entry(response, 2));
+      connection->body.len = RSTRING_LEN(rb_ary_entry(response, 2));
+      
+      watch(connection, thin_connection_writable_cb, write, EV_WRITE);
+    }
   }
 }
 

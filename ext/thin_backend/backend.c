@@ -116,5 +116,7 @@ VALUE thin_backend_alloc(VALUE klass)
   thin_backend_t *backend = ALLOC_N(thin_backend_t, 1);
   VALUE obj = Data_Wrap_Struct(klass, NULL, thin_backend_free, backend);
   
+  backend->obj = obj;
+  
   return obj;
 }
