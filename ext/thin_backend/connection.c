@@ -112,10 +112,15 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
     } else {
       /* store response info and prepare for writing */
       connection->status   = FIX2INT(rb_ary_entry(response, 0));
-      /* FIXME mark as used to Ruby GC */
       connection->headers  = rb_ary_entry(response, 1);
-      connection->body.ptr = RSTRING_PTR(rb_ary_entry(response, 2));
-      connection->body.len = RSTRING_LEN(rb_ary_entry(response, 2));
+      connection->rbbody   = rb_ary_entry(response, 2);
+      /* FIXME use body#each to output */
+      connection->body.ptr = RSTRING_PTR(connection->rbbody);
+      connection->body.len = RSTRING_LEN(connection->rbbody);
+      
+      /* mark as used to Ruby GC */
+      rb_gc_register_address(&connection->headers);
+      rb_gc_register_address(&connection->rbbody);
       
       watch(connection, thin_connection_writable_cb, write, EV_WRITE);
     }
@@ -163,8 +168,9 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->fd = fd;
   connection->remote_addr = remote_addr;
   
-  /* FIXME mark as used to Ruby GC */
+  /* mark as used to Ruby GC */
   connection->env = rb_hash_new();
+  rb_gc_register_address(&connection->env);
   
   /* alloc read buffer from pool */
   connection->read_buffer.ptr = palloc(connection->buffer_pool, 1);
@@ -206,7 +212,10 @@ void thin_connection_close(thin_connection_t *connection)
   connection->read_buffer.salloc = 0;
   connection->read_buffer.nalloc = 0;
   
-  connection->env = Qnil;
+  /* tell Ruby GC vars are not used anymore */
+  rb_gc_unregister_address(&connection->headers);
+  rb_gc_unregister_address(&connection->rbbody);
+  rb_gc_unregister_address(&connection->env);
   
   connection->open = 0; 
 }

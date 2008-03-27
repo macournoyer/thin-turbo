@@ -56,6 +56,7 @@ struct thin_connection_s {
   
   int                 status;
   VALUE               headers;
+  VALUE               rbbody;
   thin_buffer_t       body;
   size_t              content_length;
   
