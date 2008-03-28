@@ -32,14 +32,19 @@ pool_t * pool_create(size_t num, size_t size)
   return p;
 }
 
-void pool_destroy(pool_t *p)
+void pool_destroy(pool_t *pool)
 {
-  void   *alloc = p->alloc;
-  size_t *assign = p->assign;
+  pool_t *p = pool, *next;
   
-  free(alloc);
-  free(assign);
-  free(p);
+  while (p->next != NULL) {
+    next = p->next;
+    
+    free(p->alloc);
+    free(p->assign);
+    free(p);
+    
+    p = next;
+  }
 }
 
 void * palloc(pool_t *p, size_t num)

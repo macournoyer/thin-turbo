@@ -31,12 +31,7 @@ VALUE thin_backend_init(VALUE self, VALUE address, VALUE port, VALUE app)
 {
   thin_backend_t *backend = NULL;
   DATA_GET(self, thin_backend_t, backend);
-  
-  backend->connections = array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
-  thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
-  
-  backend->buffer_pool = pool_create(THIN_CONNECTIONS_SIZE, THIN_BUFFER_SIZE);
-  
+    
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
   backend->app = app;
@@ -116,6 +111,11 @@ VALUE thin_backend_alloc(VALUE klass)
 {
   thin_backend_t *backend = ALLOC_N(thin_backend_t, 1);
   VALUE obj = Data_Wrap_Struct(klass, NULL, thin_backend_free, backend);
+  
+  backend->connections = array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
+  thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+  
+  backend->buffer_pool = pool_create(THIN_CONNECTIONS_SIZE, THIN_BUFFER_SIZE);
   
   backend->obj = obj;
   

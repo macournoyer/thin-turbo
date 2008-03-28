@@ -220,7 +220,7 @@ void thin_connections_create(array_t *connections, size_t num)
   
   for (i = 0; i <= num; ++i) {
     connection = array_push(connections);
-    
+    connection->open = 0;
     thin_setup_parser_callbacks(connection);
   }
 }
