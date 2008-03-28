@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <netinet/tcp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +21,7 @@
 #include "parser.h"
 #include "array.h"
 #include "palloc.h"
+#include "status.h"
 
 #ifdef __FreeBSD__
 #define THIN_LISTEN_BACKLOG    -1

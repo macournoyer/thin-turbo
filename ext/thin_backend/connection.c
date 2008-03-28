@@ -58,7 +58,7 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   /* TODO do something w/ sent, maybe buffer, not all sent? */
   
   /* send the header */
-  n  = sprintf(resp, "HTTP/1.1 %d OK" CRLF, connection->status);
+  n  = sprintf(resp, "HTTP/1.1 %s" CRLF, thin_status(connection->status));
   n += thin_connection_sprint_headers(connection, (char *) resp + n);
   n += sprintf((char *) resp + n, CRLF);
   sent = send(connection->fd, resp, n, 0);
