@@ -12,7 +12,7 @@ void thin_connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
   thin_connection_close(connection);
 }
 
-int thin_print_headers(thin_connection_t *connection, char *str)
+int thin_connection_sprint_headers(thin_connection_t *connection, char *str)
 {
   VALUE  hash, keys, key, value;
   size_t i;
@@ -36,23 +36,42 @@ int thin_print_headers(thin_connection_t *connection, char *str)
   return n;
 }
 
+VALUE thin_connection_iter_body(VALUE chunk, VALUE *conn)
+{
+  thin_connection_t *connection = (thin_connection_t *) conn;
+  int sent;
+  
+  sent = send(connection->fd, RSTRING_PTR(chunk), RSTRING_LEN(chunk), 0);
+  
+  return Qnil;
+}
+
 void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
   char              *resp;
   int                n, sent;
   
-  /* TODO write in chunk */
-
-  resp = (char *) palloc(connection->buffer_pool,
-                         connection->body.len / connection->buffer_pool->size + 1);
+  /* TODO how to dertermine best buffer size? */
+  resp = (char *) palloc(connection->buffer_pool, 5);
   
-  n  = sprintf(resp, "HTTP/1.1 %d OK\r\n", connection->status);
-  n += thin_print_headers(connection, (char *) resp + n);
-  n += sprintf((char *) resp + n, "\r\n%s", connection->body.ptr);
-    
-  sent = send(connection->fd, resp, n, 0);
   /* TODO do something w/ sent, maybe buffer, not all sent? */
+  
+  /* send the header */
+  n  = sprintf(resp, "HTTP/1.1 %d OK" CRLF, connection->status);
+  n += thin_connection_sprint_headers(connection, (char *) resp + n);
+  n += sprintf((char *) resp + n, CRLF);
+  sent = send(connection->fd, resp, n, 0);
+  
+  /* send the body */
+  if (TYPE(connection->body) == T_STRING) {
+    /* Calling String#each creates several other strings which is slower and use more mem,
+     * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */
+    sent = send(connection->fd, RSTRING_PTR(connection->body), RSTRING_LEN(connection->body), 0);
+  } else {
+    /* Iterate over body#each and send each yielded chunk */
+    rb_iterate(rb_each, connection->body, thin_connection_iter_body, (VALUE) connection);
+  }
   
   pfree(connection->buffer_pool, resp);
   watcher->cb = thin_connection_closable_cb;
@@ -111,16 +130,13 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
       thin_connection_close(connection);
     } else {
       /* store response info and prepare for writing */
-      connection->status   = FIX2INT(rb_ary_entry(response, 0));
-      connection->headers  = rb_ary_entry(response, 1);
-      connection->rbbody   = rb_ary_entry(response, 2);
-      /* FIXME use body#each to output */
-      connection->body.ptr = RSTRING_PTR(connection->rbbody);
-      connection->body.len = RSTRING_LEN(connection->rbbody);
+      connection->status  = FIX2INT(rb_ary_entry(response, 0));
+      connection->headers = rb_ary_entry(response, 1);
+      connection->body    = rb_ary_entry(response, 2);
       
       /* mark as used to Ruby GC */
       rb_gc_register_address(&connection->headers);
-      rb_gc_register_address(&connection->rbbody);
+      rb_gc_register_address(&connection->body);
       
       watch(connection, thin_connection_writable_cb, write, EV_WRITE);
     }
@@ -214,7 +230,7 @@ void thin_connection_close(thin_connection_t *connection)
   
   /* tell Ruby GC vars are not used anymore */
   rb_gc_unregister_address(&connection->headers);
-  rb_gc_unregister_address(&connection->rbbody);
+  rb_gc_unregister_address(&connection->body);
   rb_gc_unregister_address(&connection->env);
   
   connection->open = 0; 

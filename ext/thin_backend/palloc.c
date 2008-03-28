@@ -46,6 +46,7 @@ void * palloc(pool_t *p, size_t num)
 {
   size_t numfree, i = 0;
   
+  /* TODO we should build a custom pool in that case... */
   assert(num <= p->num);
   
   for (;;) {

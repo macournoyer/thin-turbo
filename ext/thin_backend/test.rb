@@ -24,12 +24,13 @@ class Thin::Backend
 end
 
 app = proc do |env|
-  body = 'hello world!'
+  body = ['hello', ' world!']
+  # body = 'hello world!'
   [
     200,
     {
       'Content-Type' => 'text/html',
-      'Content-Length' => body.size.to_s
+      'Content-Length' => body.join.size.to_s
     },
     body
   ]

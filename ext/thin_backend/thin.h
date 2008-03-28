@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <netinet/tcp.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,10 @@
 #define THIN_OK     0
 #define THIN_ERROR -1
 
+#define LF     (u_char) 10
+#define CR     (u_char) 13
+#define CRLF   "\x0d\x0a"
+
 typedef struct thin_backend_s thin_backend_t;
 typedef struct thin_buffer_s thin_buffer_t;
 typedef struct thin_connection_s thin_connection_t;
@@ -56,8 +61,7 @@ struct thin_connection_s {
   
   int                 status;
   VALUE               headers;
-  VALUE               rbbody;
-  thin_buffer_t       body;
+  VALUE               body;
   size_t              content_length;
   
   thin_backend_t     *backend;

@@ -54,7 +54,7 @@ VALUE thin_backend_listen(VALUE self)
 {
   thin_backend_t *backend = NULL;
   DATA_GET(self, thin_backend_t, backend);
-  int sock_flags = 1;
+  int sock_flags;
 
   if ((backend->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     rb_sys_fail("socket");
@@ -63,9 +63,10 @@ VALUE thin_backend_listen(VALUE self)
   if (fcntl(backend->fd, F_SETFL, O_NONBLOCK) < 0)
     rb_sys_fail("fcntl");
 
-  if (setsockopt(backend->fd, SOL_SOCKET, SO_REUSEADDR, &sock_flags, sizeof(int)) == -1)
-    rb_sys_fail("setsockopt");
-  
+  sock_flags = 1;
+  if (setsockopt(backend->fd, SOL_SOCKET, SO_REUSEADDR, &sock_flags, sizeof(sock_flags)) == -1)
+    rb_sys_fail("setsockopt(SO_REUSEADDR)");
+    
   if (bind(backend->fd, (struct sockaddr *)&backend->local_addr, sizeof backend->local_addr) == -1)
     rb_sys_fail("bind");
 
