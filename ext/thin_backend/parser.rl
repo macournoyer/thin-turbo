@@ -9,59 +9,99 @@
 #include <ctype.h>
 #include <string.h>
 
-#define LEN(AT, FPC) (FPC - buffer - parser->AT)
-#define MARK(M,FPC) (parser->M = (FPC) - buffer)
-#define PTR_TO(F) (buffer + parser->F)
+#define LEN(AT, FPC)       (FPC - buffer - parser->AT)
+#define MARK(M,FPC)        (parser->M = (FPC) - buffer)
+#define PTR_TO(F)          (buffer + parser->F)
+#define PARSER_ERROR       (parser->error = 1)
+
+#define MAX_FIELD_NAME     256
+#define MAX_FIELD_VALUE    80 * 1024
+#define MAX_REQUEST_URI    1024 * 12
+#define MAX_FRAGMENT       1024 /* Don't know if this length is specified somewhere or not */
+#define MAX_REQUEST_PATH   1024
+#define MAX_QUERY_STRING   1024 * 10
+#define MAX_CONTENT_LENGTH 20
+#define MAX_CONTENT_TYPE   1024
+#define MAX_HEADER         1024 * (80 + 32)
 
 /** machine **/
 %%{
   machine http_parser;
 
-  action mark {MARK(mark, fpc); }
-
+  action mark { MARK(mark, fpc); }
 
   action start_field { MARK(field_start, fpc); }
-  action write_field { 
+  action write_field {
     parser->field_len = LEN(field_start, fpc);
+    if (parser->field_len > MAX_FIELD_NAME) { PARSER_ERROR; fbreak; }
   }
 
   action start_value { MARK(mark, fpc); }
-  action write_value { 
-    if(parser->http_field != NULL) {
-      parser->http_field(parser->data, PTR_TO(field_start), parser->field_len, PTR_TO(mark), LEN(mark, fpc));
-    }
+  action write_value {
+    size_t vlen = LEN(mark, fpc);
+    
+    if (vlen > MAX_FIELD_VALUE) { PARSER_ERROR; fbreak; }
+    if (parser->http_field != NULL)
+      parser->http_field(parser->data, PTR_TO(field_start), parser->field_len, PTR_TO(mark), vlen);
   }
   
   action content_length {
-    if(parser->content_length != NULL) {
-      parser->content_length(parser->data, PTR_TO(mark), LEN(mark, fpc));
-    }
+    size_t len = LEN(mark, fpc);
+    
+    if (len > MAX_CONTENT_LENGTH) { PARSER_ERROR; fbreak; }
+    if (parser->content_length != NULL)
+      parser->content_length(parser->data, PTR_TO(mark), len);
+  }
+  
+  action content_type {
+    size_t len = LEN(mark, fpc);
+    
+    if (len > MAX_CONTENT_TYPE) { PARSER_ERROR; fbreak; }
+    if (parser->content_type != NULL)
+      parser->content_type(parser->data, PTR_TO(mark), len);
   }
   
   action request_method { 
-    if(parser->request_method != NULL) 
+    if (parser->request_method != NULL) 
       parser->request_method(parser->data, PTR_TO(mark), LEN(mark, fpc));
   }
-  action request_uri { 
-    if(parser->request_uri != NULL)
+  action request_uri {
+    size_t len = LEN(mark, fpc);
+    
+    if (len > MAX_REQUEST_URI) { PARSER_ERROR; fbreak; }
+    if (parser->request_uri != NULL)
       parser->request_uri(parser->data, PTR_TO(mark), LEN(mark, fpc));
   }
 
-  action start_query {MARK(query_start, fpc); }
-  action query_string { 
-    if(parser->query_string != NULL)
-      parser->query_string(parser->data, PTR_TO(query_start), LEN(query_start, fpc));
+  action start_query { MARK(query_start, fpc); }
+  action query_string {
+    size_t len = LEN(query_start, fpc);
+    
+    if (len > MAX_QUERY_STRING) { PARSER_ERROR; fbreak; } 
+    if (parser->query_string != NULL)
+      parser->query_string(parser->data, PTR_TO(query_start), len);
   }
 
   action http_version {	
-    if(parser->http_version != NULL)
+    if (parser->http_version != NULL)
       parser->http_version(parser->data, PTR_TO(mark), LEN(mark, fpc));
   }
 
   action request_path {
-    if(parser->request_path != NULL)
-      parser->request_path(parser->data, PTR_TO(mark), LEN(mark,fpc));
+    size_t len = LEN(mark, fpc);
+    
+    if (len > MAX_REQUEST_PATH) { PARSER_ERROR; fbreak; }
+    if (parser->request_path != NULL)
+      parser->request_path(parser->data, PTR_TO(mark), len);
   }
+  
+  action fragment {
+    size_t len = LEN(mark, fpc);
+    
+    if (len > MAX_FRAGMENT) { PARSER_ERROR; fbreak; }
+    if (parser->fragment != NULL)
+      parser->fragment(parser->data, PTR_TO(mark), len);
+  }  
 
   action done { 
     parser->body_start = fpc - buffer + 1; 
@@ -103,6 +143,7 @@
   absolute_path = ("/"+ rel_path);
 
   Request_URI = ("*" | absolute_uri | absolute_path) >mark %request_uri;
+  Fragment = ( uchar | reserved )* >mark %fragment;
   Method = (upper | digit | safe){1,20} >mark %request_method;
 
   http_number = (digit+ "." digit+) ;
@@ -113,10 +154,12 @@
 
   field_value = any* >start_value %write_value;
 
-  message_header = field_name ":" " "* field_value :> CRLF;
-  content_length = "Content-Length:"i " "* (field_value >mark %content_length) :> CRLF;
+  known_header = ( ("Content-Length:"i " "* (digit+ >mark %content_length))
+                 | ("Content-Type:"i   " "* (any* >mark %content_type))
+                 ) :> CRLF;
+  unknown_header = (field_name ":" " "* field_value :> CRLF) -- known_header;
   
-  Request = Request_Line (content_length | message_header)* ( CRLF @done);
+  Request = Request_Line (known_header | unknown_header)* ( CRLF @done );
 
 main := Request;
 }%%
@@ -133,7 +176,8 @@ int http_parser_init(http_parser *parser)  {
   parser->mark = 0;
   parser->nread = 0;
   parser->field_len = 0;
-  parser->field_start = 0;    
+  parser->field_start = 0;
+  parser->error = 0;
 
   return(1);
 }
@@ -192,7 +236,7 @@ int http_parser_finish(http_parser *parser)
 }
 
 int http_parser_has_error(http_parser *parser) {
-  return parser->cs == http_parser_error;
+  return parser->cs == http_parser_error || parser->error == 1;
 }
 
 int http_parser_is_finished(http_parser *parser) {

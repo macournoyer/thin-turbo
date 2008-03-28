@@ -27,13 +27,14 @@ def ext_task(name)
   end
 end
 
-desc "Compile the Ragel state machines"
-task :ragel do
-  Dir.chdir 'ext/thin_parser' do
-    target = "parser.c"
-    File.unlink target if File.exist? target
-    sh "ragel parser.rl | rlgen-cd -G2 -o #{target}"
-    raise "Failed to compile Ragel state machine" unless File.exist? target
+def ragel_task(dir, rl, target, name=:ragel)
+  desc "Compile the #{name} Ragel state machines"
+  task name do
+    Dir.chdir dir do
+      File.unlink target if File.exist?(target)
+      sh "ragel #{rl} | rlgen-cd -G2 -o #{target}"
+      raise "Failed to compile Ragel state machine" unless File.exist? target
+    end
   end
 end
   

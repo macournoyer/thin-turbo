@@ -8,10 +8,8 @@ static VALUE global_fragment;
 static VALUE global_query_string;
 static VALUE global_http_version;
 static VALUE global_content_length;
-static VALUE global_http_content_length;
 static VALUE global_request_path;
 static VALUE global_content_type;
-static VALUE global_http_content_type;
 static VALUE global_gateway_interface;
 static VALUE global_gateway_interface_value;
 static VALUE global_server_name;
@@ -26,24 +24,8 @@ static VALUE global_url_scheme_value;
 static VALUE global_script_name;
 static VALUE global_path_info;
 
-/** Defines common length and error messages for input length validation. */
-#define DEF_MAX_LENGTH(N,length) const size_t MAX_##N##_LENGTH = length; const char *MAX_##N##_LENGTH_ERR = "HTTP element " # N  " is longer than the " # length " allowed length."
-
-/** Validates the max length of given input and throws an HttpParserError exception if over. */
-#define VALIDATE_MAX_LENGTH(len, N) if(len > MAX_##N##_LENGTH) { /* TODO */ puts(MAX_##N##_LENGTH_ERR); }
-
 /** Defines global strings in the init method. */
-#define DEF_GLOBAL(N, val)   global_##N = rb_obj_freeze(rb_str_new2(val)); rb_global_variable(&global_##N)
-
-/* Defines the maximum allowed lengths for various input elements.*/
-DEF_MAX_LENGTH(FIELD_NAME, 256);
-DEF_MAX_LENGTH(FIELD_VALUE, 80 * 1024);
-DEF_MAX_LENGTH(REQUEST_URI, 1024 * 12);
-DEF_MAX_LENGTH(FRAGMENT, 1024); /* Don't know if this length is specified somewhere or not */
-DEF_MAX_LENGTH(REQUEST_PATH, 1024);
-DEF_MAX_LENGTH(QUERY_STRING, (1024 * 10));
-DEF_MAX_LENGTH(HEADER, (1024 * (80 + 32)));
-
+#define DEF_GLOBAL(N, val) global_##N = rb_obj_freeze(rb_str_new2(val)); rb_global_variable(&global_##N)
 
 void http_field(void *data, const char *field, size_t flen, const char *value, size_t vlen)
 {
@@ -51,9 +33,6 @@ void http_field(void *data, const char *field, size_t flen, const char *value, s
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE v = Qnil;
   VALUE f = Qnil;
-
-  VALIDATE_MAX_LENGTH(flen, FIELD_NAME);
-  VALIDATE_MAX_LENGTH(vlen, FIELD_VALUE);
 
   v = rb_str_new(value, vlen);
   f = rb_str_dup(global_http_prefix);
@@ -84,8 +63,6 @@ void request_uri(void *data, const char *at, size_t length)
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
 
-  VALIDATE_MAX_LENGTH(length, REQUEST_URI);
-
   val = rb_str_new(at, length);
   rb_hash_aset(req, global_request_uri, val);
 }
@@ -94,8 +71,6 @@ void fragment(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
-
-  VALIDATE_MAX_LENGTH(length, FRAGMENT);
 
   val = rb_str_new(at, length);
   rb_hash_aset(req, global_fragment, val);
@@ -106,8 +81,6 @@ void request_path(void *data, const char *at, size_t length)
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
 
-  VALIDATE_MAX_LENGTH(length, REQUEST_PATH);
-
   val = rb_str_new(at, length);
   rb_hash_aset(req, global_request_path, val);
   rb_hash_aset(req, global_path_info, val);
@@ -117,8 +90,6 @@ void query_string(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
-
-  VALIDATE_MAX_LENGTH(length, QUERY_STRING);
 
   val = rb_str_new(at, length);
   rb_hash_aset(req, global_query_string, val);
@@ -141,12 +112,6 @@ void header_done(void *data, const char *at, size_t length)
   VALUE ctype = Qnil;
   VALUE body = Qnil;
   char *colon = NULL;
-
-  ctype = rb_hash_aref(env, global_http_content_type);
-  if(ctype != Qnil) {
-    rb_hash_aset(env, global_content_type, ctype);
-    rb_hash_delete(env, global_http_content_type);
-  }
 
   rb_hash_aset(env, global_gateway_interface, global_gateway_interface_value);
   if((temp = rb_hash_aref(env, global_http_host)) != Qnil) {
@@ -193,6 +158,13 @@ void content_length(void *data, const char *at, size_t length)
   rb_hash_aset(connection->env, global_content_length, val);
 }
 
+void content_type(void *data, const char *at, size_t length)
+{
+  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE val = rb_str_new(at, length);
+  rb_hash_aset(req, global_content_type, val);
+}
+
 void thin_parser_callbacks_init(VALUE module)
 {
   DEF_GLOBAL(empty, "");
@@ -204,9 +176,7 @@ void thin_parser_callbacks_init(VALUE module)
   DEF_GLOBAL(http_version, "HTTP_VERSION");
   DEF_GLOBAL(request_path, "REQUEST_PATH");
   DEF_GLOBAL(content_length, "CONTENT_LENGTH");
-  DEF_GLOBAL(http_content_length, "HTTP_CONTENT_LENGTH");
   DEF_GLOBAL(content_type, "CONTENT_TYPE");
-  DEF_GLOBAL(http_content_type, "HTTP_CONTENT_TYPE");
   DEF_GLOBAL(gateway_interface, "GATEWAY_INTERFACE");
   DEF_GLOBAL(gateway_interface_value, "CGI/1.2");
   DEF_GLOBAL(server_name, "SERVER_NAME");
@@ -235,4 +205,5 @@ void thin_setup_parser_callbacks(thin_connection_t *connection)
   connection->parser.http_version   = http_version;
   connection->parser.header_done    = header_done;
   connection->parser.content_length = content_length;  
+  connection->parser.content_type   = content_type;  
 }

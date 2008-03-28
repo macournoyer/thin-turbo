@@ -19,7 +19,7 @@ class Thin::Backend
   
   def log_error(ex=$!)
     puts "!! Unexpected error while processing request: #{ex.message}"
-    puts ex.backtrace.join("\n")
+    puts ex.backtrace.join("\n") if ex.backtrace
   end
 end
 

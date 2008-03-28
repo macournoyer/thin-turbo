@@ -13,6 +13,10 @@ task :default => :spec
 ext_task :thin_parser
 ext_task :thin_backend
 
+ragel_task 'ext/thin_backend', 'parser.rl', 'parser.c'
+
 task :test do
-  cd 'test' { sh 'make test' }
+  cd 'test' do
+    sh 'make test'
+  end
 end

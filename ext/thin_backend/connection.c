@@ -115,7 +115,16 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
                             connection->parser.nread);
   
   connection->parser.nread = len;
-
+  
+  /* parser error */
+  if (http_parser_has_error(&connection->parser)) {
+    rb_funcall(connection->backend->obj, rb_intern("log_error"), 1,
+               rb_exc_new(rb_eRuntimeError, "Invalid request", 15));
+    thin_connection_close(connection);
+    return;
+  }
+  
+  /* TODO store big body in tempfile */
   if (http_parser_is_finished(&connection->parser) &&
       connection->read_buffer.len >= connection->content_length) {
     
