@@ -147,6 +147,7 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
     return;
   }
   
+  /* TODO place body in rack.input */
   /* TODO store big body in tempfile */
   if (http_parser_is_finished(&connection->parser)) {
     if (connection->read_buffer.len > THIN_MAX_HEADER) {

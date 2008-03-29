@@ -33,7 +33,7 @@
 #define THIN_MAX_HEADER_SLICES (80 + 32)
 #define THIN_MAX_HEADER        1024 * THIN_MAX_HEADER_SLICES
 #define THIN_BUFFER_SIZE       1024
-#define THIN_BUFFER_SLICES     10 * 2
+#define THIN_BUFFER_SLICES     THIN_MAX_HEADER_SLICES /* buffer must be able to hold big header */
 
 #define LF     (u_char) 10
 #define CR     (u_char) 13
@@ -51,42 +51,49 @@ struct thin_buffer_s {
 };
 
 struct thin_connection_s {
+  /* socket */
   unsigned            open : 1;
   int                 fd;
   struct sockaddr_in  remote_addr;
-  
+    
+  /* request */
   thin_buffer_t       read_buffer;
-  
   http_parser         parser;
   VALUE               env;
+  size_t              content_length;
   
+  /* response */
   int                 status;
   VALUE               headers;
   VALUE               body;
-  size_t              content_length;
   
+  /* backend */
   thin_backend_t     *backend;
   pool_t             *buffer_pool;
-
+  
+  /* libev */
   struct ev_loop     *loop;
   ev_io               read_watcher;
   ev_io               write_watcher;  
 };
 
 struct thin_backend_s {
+  /* socket */
   char               *address;
   unsigned            port;
-  
   unsigned            open : 1;
   int                 fd;
   struct sockaddr_in  local_addr;
   
-  VALUE               obj;
-  VALUE               app;
+  /* ruby */
+  VALUE               obj; /* Ruby Backend object */
+  VALUE               app; /* Rack app */
   
+  /* pools */
   array_t            *connections;
   pool_t             *buffer_pool;
   
+  /* libev */
   ev_io               accept_watcher;
   struct ev_loop     *loop;
 };

@@ -51,7 +51,7 @@ void * palloc(pool_t *p, size_t num)
 {
   size_t numfree, i = 0;
   
-  /* TODO we should build a custom pool in that case... */
+  /* TODO maybe build a custom pool in that case ? */
   assert(num <= p->num);
   
   for (;;) {
@@ -99,7 +99,7 @@ void pfree(pool_t *pool, void *ptr)
     pool_i++;
   }
   
-  assert(p != NULL && "memory not allocated from a pool");
+  assert(p != NULL && "ptr not allocated from pool");
   assert(ptr >= p->alloc && "ptr must be inside pool");
   
   i = (((int) ptr) - ((int) p->alloc)) / p->size;
