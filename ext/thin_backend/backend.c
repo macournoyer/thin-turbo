@@ -115,7 +115,7 @@ VALUE thin_backend_alloc(VALUE klass)
   backend->connections = array_create(THIN_CONNECTIONS_SIZE, sizeof(thin_connection_t));
   thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
   
-  backend->buffer_pool = pool_create(THIN_CONNECTIONS_SIZE, THIN_BUFFER_SIZE);
+  backend->buffer_pool = pool_create(THIN_BUFFER_SLICES, THIN_BUFFER_SIZE);
   
   backend->obj = obj;
   

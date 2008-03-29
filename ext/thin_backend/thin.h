@@ -29,10 +29,10 @@
 #define THIN_LISTEN_BACKLOG    511
 #endif
 #define THIN_CONNECTIONS_SIZE  300
+#define MAX_HEADER_SLICES      (80 + 32)
+#define MAX_HEADER             1024 * MAX_HEADER_SLICES
 #define THIN_BUFFER_SIZE       1024
-
-#define THIN_OK     0
-#define THIN_ERROR -1
+#define THIN_BUFFER_SLICES     10 * 2
 
 #define LF     (u_char) 10
 #define CR     (u_char) 13

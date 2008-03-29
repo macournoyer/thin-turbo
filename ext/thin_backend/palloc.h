@@ -33,6 +33,6 @@ void pool_destroy(pool_t *p);
 void * palloc(pool_t *p, size_t num);
 
 /* mark the memory as free in the pool */
-int pfree(pool_t *pool, void *ptr);
+void pfree(pool_t *pool, void *ptr);
 
 #endif /* _PALLOC_H_ */

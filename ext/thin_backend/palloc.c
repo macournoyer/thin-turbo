@@ -83,24 +83,25 @@ void * palloc(pool_t *p, size_t num)
   }
   
   p->assign[i] = num;
+  
   return (u_char *) p->alloc + p->size * i;
 }
 
-int pfree(pool_t *pool, void *ptr)
+void pfree(pool_t *pool, void *ptr)
 {
   pool_t *p = pool;
-  size_t  i;
+  size_t  pool_i = 0, i;
   
   while (p != NULL &&
         /* ptr in range of alloced mem? */
-        (ptr < p->alloc || ptr > p->alloc + p->num * p->size))
+        (ptr < p->alloc || ptr > p->alloc + (p->num - 1) * p->size)) {
     p = p->next;
+    pool_i++;
+  }
   
-  if (p == NULL)
-    return -1;
+  assert(p != NULL && "memory not allocated from a pool");
+  assert(ptr >= p->alloc && "ptr must be inside pool");
   
-  i = ((int) ptr) - ((int) p->alloc);
+  i = (((int) ptr) - ((int) p->alloc)) / p->size;
   p->assign[i] = 0;
-  
-  return 0;
 }

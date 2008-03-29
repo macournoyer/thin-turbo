@@ -15,14 +15,13 @@
 #define PARSER_ERROR       (parser->error = 1)
 
 #define MAX_FIELD_NAME     256
-#define MAX_FIELD_VALUE    80 * 1024
+#define MAX_FIELD_VALUE    1024 * 80
 #define MAX_REQUEST_URI    1024 * 12
 #define MAX_FRAGMENT       1024 /* Don't know if this length is specified somewhere or not */
 #define MAX_REQUEST_PATH   1024
 #define MAX_QUERY_STRING   1024 * 10
 #define MAX_CONTENT_LENGTH 20
 #define MAX_CONTENT_TYPE   1024
-#define MAX_HEADER         1024 * (80 + 32)
 
 /** machine **/
 %%{
