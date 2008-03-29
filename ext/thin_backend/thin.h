@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -29,8 +30,8 @@
 #define THIN_LISTEN_BACKLOG    511
 #endif
 #define THIN_CONNECTIONS_SIZE  300
-#define MAX_HEADER_SLICES      (80 + 32)
-#define MAX_HEADER             1024 * MAX_HEADER_SLICES
+#define THIN_MAX_HEADER_SLICES (80 + 32)
+#define THIN_MAX_HEADER        1024 * THIN_MAX_HEADER_SLICES
 #define THIN_BUFFER_SIZE       1024
 #define THIN_BUFFER_SLICES     10 * 2
 
