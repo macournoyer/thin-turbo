@@ -15,6 +15,6 @@ void Init_thin_backend()
   rb_define_protected_method(cBackend, "close", thin_backend_close, 0);
   
   /* Initialize internal stuff */
-  thin_connection_init();
+  thin_connections_init();
   thin_parser_callbacks_init(mThin);
 }

@@ -117,10 +117,13 @@ VALUE thin_backend_loop(VALUE self);
 VALUE thin_backend_close(VALUE self);
 VALUE thin_backend_alloc(VALUE self);
 
-void thin_connection_init();
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void thin_connections_create(array_t *connections, size_t num);
+void thin_connection_parse(thin_connection_t *connection);
+void thin_connection_process(thin_connection_t *connection);
 void thin_connection_close(thin_connection_t *connection);
+
+void thin_connections_init();
+void thin_connections_create(array_t *connections, size_t num);
 
 void thin_parser_callbacks_init(VALUE module);
 void thin_setup_parser_callbacks(thin_connection_t *connection);

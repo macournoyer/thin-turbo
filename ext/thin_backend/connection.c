@@ -92,7 +92,7 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
     rb_iterate(rb_each, connection->body, thin_connection_iter_body, (VALUE) connection);
   }
 
-finish:  
+finish:
   pfree(connection->buffer_pool, resp);
   watcher->cb = thin_connection_closable_cb;
 }
@@ -100,7 +100,6 @@ finish:
 void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, read);
-  VALUE              response;
   size_t             len;
   char              *new, *old;
   
@@ -130,67 +129,11 @@ void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   connection->read_buffer.len += len;
   
-  /* terminate string with null */
-  memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
-    
-  /* parse the request into connection->env */
-  len = http_parser_execute(&connection->parser,
-                            connection->read_buffer.ptr,
-                            connection->read_buffer.len,
-                            connection->parser.nread);
-  
-  connection->parser.nread = len;
-  
-  /* parser error */
-  if (http_parser_has_error(&connection->parser)) {
-    thin_connection_error(connection, "Invalid request");
-    return;
-  }
-  
-  /* TODO place body in rack.input */
-  /* TODO store big body in tempfile */
-  if (http_parser_is_finished(&connection->parser)) {
-    if (connection->read_buffer.len > THIN_MAX_HEADER) {
-      thin_connection_error(connection, "Header too big");
-      return;
-    }
-    
-    /* request fully received */
-    if (connection->read_buffer.len >= connection->content_length) {
-      unwatch(connection, read);
-    
-      /* Call the app to process the request */
-      response = rb_funcall_rescue(connection->backend->app, sInternedCall, 1, connection->env);
-    
-      if (response == Qundef) {
-        /* log any error */
-        rb_funcall(connection->backend->obj, rb_intern("log_error"), 0);
-        thin_connection_close(connection);
-      } else {
-        /* store response info and prepare for writing */
-        connection->status  = FIX2INT(rb_ary_entry(response, 0));
-        connection->headers = rb_ary_entry(response, 1);
-        connection->body    = rb_ary_entry(response, 2);
-      
-        /* mark as used to Ruby GC */
-        rb_gc_register_address(&connection->headers);
-        rb_gc_register_address(&connection->body);
-      
-        watch(connection, thin_connection_writable_cb, write, EV_WRITE);
-      }
-    }
-  }
+  thin_connection_parse(connection);
 }
 
 
 /* public api */
-
-void thin_connection_init()
-{
-  /* Intern some Ruby string */
-  sInternedCall = rb_intern("call");
-  sInternedKeys = rb_intern("keys");
-}
 
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr)
 {
@@ -244,15 +187,63 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   watch(connection, thin_connection_readable_cb, read, EV_READ);
 }
 
-void thin_connections_create(array_t *connections, size_t num)
+void thin_connection_parse(thin_connection_t *connection)
 {
-  thin_connection_t *connection;
-  int                i;
+  size_t len;
   
-  for (i = 0; i <= num; ++i) {
-    connection = array_push(connections);
-    connection->open = 0;
-    thin_setup_parser_callbacks(connection);
+  /* terminate string with null */
+  memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
+    
+  /* parse the request into connection->env */
+  len = http_parser_execute(&connection->parser,
+                            connection->read_buffer.ptr,
+                            connection->read_buffer.len,
+                            connection->parser.nread);
+  
+  connection->parser.nread = len;
+  
+  /* parser error */
+  if (http_parser_has_error(&connection->parser)) {
+    thin_connection_error(connection, "Invalid request");
+    return;
+  }
+  
+  /* TODO place body in rack.input */
+  /* TODO store big body in tempfile */
+  if (http_parser_is_finished(&connection->parser)) {
+    if (connection->read_buffer.len > THIN_MAX_HEADER) {
+      thin_connection_error(connection, "Header too big");
+      return;
+    }
+    
+    /* request fully received */
+    if (connection->read_buffer.len >= connection->content_length) {
+      unwatch(connection, read);
+      thin_connection_process(connection);
+    }
+  }
+}
+
+void thin_connection_process(thin_connection_t *connection)
+{
+  /* Call the app to process the request */
+  VALUE response = rb_funcall_rescue(connection->backend->app, sInternedCall, 1, connection->env);
+
+  if (response == Qundef) {
+    /* log any error */
+    rb_funcall(connection->backend->obj, rb_intern("log_error"), 0);
+    thin_connection_close(connection);
+  } else {
+    /* store response info and prepare for writing */
+    connection->status  = FIX2INT(rb_ary_entry(response, 0));
+    connection->headers = rb_ary_entry(response, 1);
+    connection->body    = rb_ary_entry(response, 2);
+  
+    /* mark as used to Ruby GC */
+    rb_gc_register_address(&connection->headers);
+    rb_gc_register_address(&connection->body);
+  
+    watch(connection, thin_connection_writable_cb, write, EV_WRITE);
   }
 }
 
@@ -274,4 +265,27 @@ void thin_connection_close(thin_connection_t *connection)
   rb_gc_unregister_address(&connection->env);
   
   connection->open = 0; 
+
+}
+
+
+/* connections */
+
+void thin_connections_init()
+{
+  /* Intern some Ruby string */
+  sInternedCall = rb_intern("call");
+  sInternedKeys = rb_intern("keys");
+}
+
+void thin_connections_create(array_t *connections, size_t num)
+{
+  thin_connection_t *connection;
+  int                i;
+  
+  for (i = 0; i <= num; ++i) {
+    connection = array_push(connections);
+    connection->open = 0;
+    thin_setup_parser_callbacks(connection);
+  }
 }
