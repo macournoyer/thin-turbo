@@ -47,6 +47,7 @@ struct thin_buffer_s {
   size_t  nalloc; /* num slices alloced */
   size_t  salloc; /* total size alloced */
   size_t  len;
+  size_t  current;
   char   *ptr;
 };
 
@@ -63,9 +64,7 @@ struct thin_connection_s {
   size_t              content_length;
   
   /* response */
-  int                 status;
-  VALUE               headers;
-  VALUE               body;
+  thin_buffer_t       write_buffer;
   
   /* backend */
   thin_backend_t     *backend;
