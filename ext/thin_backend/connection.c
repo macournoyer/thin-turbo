@@ -2,6 +2,7 @@
 
 static VALUE sInternedCall;
 static VALUE sInternedKeys;
+static VALUE sRackInput;
 
 #define thin_connection_error(connection, msg) \
   rb_funcall(connection->backend->obj, rb_intern("log_error"), 1, \
@@ -124,6 +125,12 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->read_buffer.nalloc = 1;
   connection->read_buffer.salloc = connection->buffer_pool->size;
   connection->read_buffer.len = 0;
+  connection->read_buffer.current = 0;
+  
+  /* assign env[rack.input] */
+  connection->input = thin_input_new(&connection->read_buffer);
+  rb_gc_register_address(&connection->input);
+  rb_hash_aset(connection->env, sRackInput, connection->input);
   
   connection->write_buffer.ptr = palloc(connection->buffer_pool, 1);
   if (connection->write_buffer.ptr == NULL)
@@ -281,6 +288,7 @@ void thin_connection_close(thin_connection_t *connection)
   
   /* tell Ruby GC vars are not used anymore */
   rb_gc_unregister_address(&connection->env);
+  rb_gc_unregister_address(&connection->input);
   
   connection->open = 0;
 }
@@ -293,6 +301,7 @@ void thin_connections_init()
   /* Intern some Ruby string */
   sInternedCall = rb_intern("call");
   sInternedKeys = rb_intern("keys");
+  sRackInput = rb_obj_freeze(rb_str_new2("rack.input"));
 }
 
 void thin_connections_create(array_t *connections, size_t num)

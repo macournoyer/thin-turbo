@@ -107,11 +107,12 @@ void http_version(void *data, const char *at, size_t length)
 
 void header_done(void *data, const char *at, size_t length)
 {
-  VALUE env = ((thin_connection_t*) data)->env;
-  VALUE temp = Qnil;
-  VALUE ctype = Qnil;
-  VALUE body = Qnil;
-  char *colon = NULL;
+  thin_connection_t *connection = (thin_connection_t*) data;
+  VALUE              env        = connection->env;
+  VALUE              temp       = Qnil;
+  VALUE              ctype      = Qnil;
+  VALUE              body       = Qnil;
+  char              *colon      = NULL;
 
   rb_hash_aset(env, global_gateway_interface, global_gateway_interface_value);
   if((temp = rb_hash_aref(env, global_http_host)) != Qnil) {
@@ -129,9 +130,9 @@ void header_done(void *data, const char *at, size_t length)
   }
 
   /* grab the initial body and stuff it into the hash */
-  if(length > 0) {
-    body = rb_hash_aref(env, global_http_body);
-    rb_io_write(body, rb_str_new(at, length));
+  if (length > 0) {
+    memcpy(connection->read_buffer.ptr, at, length);
+    connection->read_buffer.len = length;
   }
   
   /* according to Rack specs, query string must be empty string if none */
@@ -165,7 +166,7 @@ void content_type(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_content_type, val);
 }
 
-void thin_parser_callbacks_init(VALUE module)
+void thin_parser_callbacks_init()
 {
   DEF_GLOBAL(empty, "");
   DEF_GLOBAL(http_prefix, "HTTP_");

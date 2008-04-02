@@ -23,9 +23,12 @@ class Thin::Backend
   end
 end
 
+body = DATA.read
+
 app = proc do |env|
   # body = ['hello', ' world!']
-  body = 'hello world!'
+  # body = 'hello world!'
+  puts env['rack.input'].read if env['rack.input']
   [
     200,
     {
@@ -39,3 +42,9 @@ end
 b = Thin::Backend.new('0.0.0.0', 4000, app)
 
 b.start
+
+__END__
+<form action="?" method="post">
+  <input type="text" name="name" value="value" />
+  <input type="submit" />
+</form>
