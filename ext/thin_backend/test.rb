@@ -26,9 +26,7 @@ end
 body = DATA.read
 
 app = proc do |env|
-  # body = ['hello', ' world!']
-  # body = 'hello world!'
-  puts env['rack.input'].read if env['rack.input']
+  puts env['rack.input'].read if env['CONTENT_LENGTH'].to_i > 0
   [
     200,
     {
@@ -44,7 +42,12 @@ b = Thin::Backend.new('0.0.0.0', 4000, app)
 b.start
 
 __END__
+<html>
+<h1>Hi there!</h1>
+<p>Type something ...</p>
 <form action="?" method="post">
   <input type="text" name="name" value="value" />
   <input type="submit" />
+  <a href="/">Cancel</a>
 </form>
+</html>

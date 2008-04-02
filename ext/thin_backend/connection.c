@@ -46,37 +46,17 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, read);
-  size_t             len;
-  char              *new, *old;
-  
-  /* TODO extract this into buffer.c and optimize */
-  /* alloc more mem when buffer full */
-  if (connection->read_buffer.len >= connection->read_buffer.salloc) {
-    old = connection->read_buffer.ptr;
-    new = (char *) palloc(connection->buffer_pool,
-                          connection->read_buffer.nalloc * 2);
-    if (new == NULL)
-      rb_sys_fail("palloc");
-    
-    connection->read_buffer.ptr = new;
-    connection->read_buffer.nalloc *= 2;
-    connection->read_buffer.salloc *= 2;
-    pfree(connection->buffer_pool, old);
-  }
+  size_t             n;
+  char               buf[THIN_BUFFER_SIZE];
 
-  len = recv(connection->fd,
-             connection->read_buffer.ptr + connection->read_buffer.len,
-             connection->read_buffer.salloc - connection->read_buffer.len,
-             0);
+  n = recv(connection->fd, buf, THIN_BUFFER_SIZE, 0);
   
-  if (len == -1) {
+  if (n == -1) {
     thin_connection_errorno(connection);
     return;
   }
   
-  connection->read_buffer.len += len;
-  
-  thin_connection_parse(connection);
+  thin_connection_parse(connection, buf, n);
 }
 
 
@@ -148,40 +128,58 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   watch(connection, thin_connection_readable_cb, read, EV_READ);
 }
 
-void thin_connection_parse(thin_connection_t *connection)
+void thin_connection_parse(thin_connection_t *connection, char *buf, int len)
 {
-  size_t len;
-  
-  /* terminate string with null */
-  memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
-    
-  /* parse the request into connection->env */
-  len = http_parser_execute(&connection->parser,
-                            connection->read_buffer.ptr,
-                            connection->read_buffer.len,
-                            connection->parser.nread);
-  
-  connection->parser.nread = len;
-  
-  /* parser error */
-  if (http_parser_has_error(&connection->parser)) {
-    thin_connection_error(connection, "Invalid request");
-    return;
-  }
-  
-  /* TODO place body in rack.input */
-  /* TODO store big body in tempfile */
   if (http_parser_is_finished(&connection->parser)) {
-    if (connection->read_buffer.len > THIN_MAX_HEADER) {
+    /* parsing done, can only be some more body ... */
+    
+    /* alloc more mem when buffer full */
+    /* TODO extract this into buffer.c and optimize */
+    /* TODO store big body in tempfile */
+    if (connection->read_buffer.len >= connection->read_buffer.salloc) {
+      char *new, *old;
+      
+      old = connection->read_buffer.ptr;
+      new = (char *) palloc(connection->buffer_pool,
+                            connection->read_buffer.nalloc * 2);
+      if (new == NULL)
+        rb_sys_fail("palloc");
+        
+      memcpy(new, old, connection->read_buffer.len);
+
+      connection->read_buffer.ptr = new;
+      connection->read_buffer.nalloc *= 2;
+      connection->read_buffer.salloc *= 2;
+      pfree(connection->buffer_pool, old);
+    }
+    
+    memcpy(connection->read_buffer.ptr + connection->read_buffer.len, buf, len);
+    
+  } else {
+    /* header not all received, we continue parsing ... */
+    
+    if (connection->parser.nread + len > THIN_MAX_HEADER) {
       thin_connection_error(connection, "Header too big");
       return;
     }
     
-    /* request fully received */
-    if (connection->read_buffer.len >= connection->content_length) {
-      unwatch(connection, read);
-      thin_connection_process(connection);
+    /* terminate string with null (required by ragel v5) */
+    buf[len] = '\0';
+    
+    /* parse the request into connection->env */
+    http_parser_execute(&connection->parser, buf, len, connection->parser.nread);
+  
+    /* parser error */
+    if (http_parser_has_error(&connection->parser)) {
+      thin_connection_error(connection, "Invalid request");
+      return;
     }
+  }
+  
+  /* request fully received */
+  if (http_parser_is_finished(&connection->parser) && connection->read_buffer.len >= connection->content_length) {
+    unwatch(connection, read);
+    thin_connection_process(connection);
   }
 }
 

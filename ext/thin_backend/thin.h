@@ -117,7 +117,7 @@ void thin_input_define(void);
 VALUE thin_input_new(thin_buffer_t *buf);
 
 void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void thin_connection_parse(thin_connection_t *connection);
+void thin_connection_parse(thin_connection_t *connection, char *buf, int len);
 void thin_connection_process(thin_connection_t *connection);
 void thin_connection_close(thin_connection_t *connection);
 
