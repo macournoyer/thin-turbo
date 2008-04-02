@@ -1,10 +1,12 @@
+/* Allow reading connection->read_buffer from Ruby */
+
 #include "thin.h"
 
 static VALUE cInput;
 
 #define thin_buffer_to_s(buf) rb_str_new(buf->ptr, buf->len)
 
-VALUE thin_input_gets(VALUE self)
+static VALUE thin_input_gets(VALUE self)
 {
   thin_buffer_t *buf = NULL;
   DATA_GET(self, thin_buffer_t, buf);
@@ -12,7 +14,7 @@ VALUE thin_input_gets(VALUE self)
   return thin_buffer_to_s(buf);
 }
 
-VALUE thin_input_read(int argc, VALUE *argv, VALUE self)
+static VALUE thin_input_read(int argc, VALUE *argv, VALUE self)
 {
   thin_buffer_t *buf = NULL;
   DATA_GET(self, thin_buffer_t, buf);
@@ -38,7 +40,7 @@ VALUE thin_input_read(int argc, VALUE *argv, VALUE self)
   return str;
 }
 
-VALUE thin_input_each(VALUE self)
+static VALUE thin_input_each(VALUE self)
 {
   thin_buffer_t *buf = NULL;
   DATA_GET(self, thin_buffer_t, buf);

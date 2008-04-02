@@ -14,14 +14,14 @@ static VALUE sRackInput;
 
 /* event callbacks */
 
-void thin_connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void thin_connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
   
   thin_connection_close(connection);
 }
 
-void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, write);
   int                sent;
@@ -43,7 +43,7 @@ void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   }
 }
 
-void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_connection_t *connection = get_ev_data(connection, watcher, read);
   size_t             n;

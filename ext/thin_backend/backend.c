@@ -6,7 +6,7 @@
 
 /* event callbacks */
 
-void thin_backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
+static void thin_backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   thin_backend_t    *server = get_ev_data(backend, watcher, accept);
   struct sockaddr_in remote_addr;
@@ -98,7 +98,7 @@ VALUE thin_backend_close(VALUE self)
   return Qtrue;
 }
 
-void thin_backend_free(thin_backend_t *backend)
+static void thin_backend_free(thin_backend_t *backend)
 {
   if (backend) {
     array_destroy(backend->connections);

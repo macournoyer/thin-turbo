@@ -18,7 +18,6 @@ static VALUE global_server_protocol;
 static VALUE global_server_protocol_value;
 static VALUE global_http_host;
 static VALUE global_port_80;
-static VALUE global_http_body;
 static VALUE global_url_scheme;
 static VALUE global_url_scheme_value;
 static VALUE global_script_name;
@@ -27,7 +26,7 @@ static VALUE global_path_info;
 /** Defines global strings in the init method. */
 #define DEF_GLOBAL(N, val) global_##N = rb_obj_freeze(rb_str_new2(val)); rb_global_variable(&global_##N)
 
-void http_field(void *data, const char *field, size_t flen, const char *value, size_t vlen)
+static void http_field(void *data, const char *field, size_t flen, const char *value, size_t vlen)
 {
   char *ch, *end;
   VALUE req = ((thin_connection_t*) data)->env;
@@ -49,7 +48,7 @@ void http_field(void *data, const char *field, size_t flen, const char *value, s
   rb_hash_aset(req, f, v);
 }
 
-void request_method(void *data, const char *at, size_t length)
+static void request_method(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
@@ -58,7 +57,7 @@ void request_method(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_request_method, val);
 }
 
-void request_uri(void *data, const char *at, size_t length)
+static void request_uri(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
@@ -67,7 +66,7 @@ void request_uri(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_request_uri, val);
 }
 
-void fragment(void *data, const char *at, size_t length)
+static void fragment(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
@@ -76,7 +75,7 @@ void fragment(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_fragment, val);
 }
 
-void request_path(void *data, const char *at, size_t length)
+static void request_path(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
@@ -86,7 +85,7 @@ void request_path(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_path_info, val);
 }
 
-void query_string(void *data, const char *at, size_t length)
+static void query_string(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = Qnil;
@@ -95,7 +94,7 @@ void query_string(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_query_string, val);
 }
 
-void http_version(void *data, const char *at, size_t length)
+static void http_version(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = rb_str_new(at, length);
@@ -105,7 +104,7 @@ void http_version(void *data, const char *at, size_t length)
 /** Finalizes the request header to have a bunch of stuff that's
   needed. */
 
-void header_done(void *data, const char *at, size_t length)
+static void header_done(void *data, const char *at, size_t length)
 {
   thin_connection_t *connection = (thin_connection_t*) data;
   VALUE              env        = connection->env;
@@ -146,7 +145,7 @@ void header_done(void *data, const char *at, size_t length)
   rb_hash_aset(env, global_script_name, global_empty);
 }
 
-void content_length(void *data, const char *at, size_t length)
+static void content_length(void *data, const char *at, size_t length)
 {
   thin_connection_t *connection = (thin_connection_t*)(data);
   int                i, mult;
@@ -159,7 +158,7 @@ void content_length(void *data, const char *at, size_t length)
   rb_hash_aset(connection->env, global_content_length, val);
 }
 
-void content_type(void *data, const char *at, size_t length)
+static void content_type(void *data, const char *at, size_t length)
 {
   VALUE req = ((thin_connection_t*) data)->env;
   VALUE val = rb_str_new(at, length);
@@ -186,7 +185,6 @@ void thin_parser_callbacks_init()
   DEF_GLOBAL(server_protocol_value, "HTTP/1.1");
   DEF_GLOBAL(http_host, "HTTP_HOST");
   DEF_GLOBAL(port_80, "80");
-  DEF_GLOBAL(http_body, "rack.input");
   DEF_GLOBAL(url_scheme, "rack.url_scheme");
   DEF_GLOBAL(url_scheme_value, "http");
   DEF_GLOBAL(script_name, "SCRIPT_NAME");
