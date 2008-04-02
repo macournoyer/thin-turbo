@@ -79,6 +79,8 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   /* no free connection found, add more */
   if (connection == NULL) {
     thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+    connections = backend->connections->items;
+    /* FIXME: bug here on high concurrency, causes segfault on line 88 */
     connection = &connections[++i];
   }
   

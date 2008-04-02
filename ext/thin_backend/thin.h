@@ -29,12 +29,13 @@
 #else
 #define THIN_LISTEN_BACKLOG    511
 #endif
-#define THIN_CONNECTIONS_SIZE  300
-/* TODO clean this up ... */
-#define THIN_MAX_HEADER_SLICES (80 + 32)
-#define THIN_MAX_HEADER        1024 * THIN_MAX_HEADER_SLICES
+#define THIN_CONNECTIONS_SIZE  100
+#define THIN_BUFFER_SLICES     100
 #define THIN_BUFFER_SIZE       1024
-#define THIN_BUFFER_SLICES     THIN_MAX_HEADER_SLICES /* buffer must be able to hold big header */
+
+/* TODO move this to parser ... */
+#define THIN_MAX_HEADER        1024 * (80 + 32)
+
 
 #define LF     (u_char) 10
 #define CR     (u_char) 13
