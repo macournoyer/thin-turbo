@@ -128,48 +128,53 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   
   /* init libev stuff */
   watch(connection, thin_connection_readable_cb, read, EV_READ);
+  
+  /* TODO add timeout watcher */
 }
 
 void thin_connection_parse(thin_connection_t *connection, char *buf, int len)
 {
-  if (http_parser_is_finished(&connection->parser)) {
-    /* parsing done, can only be some more body ... */
+  if (!http_parser_is_finished(&connection->parser)
+      && connection->read_buffer.len + len > THIN_MAX_HEADER) {
+    thin_connection_error(connection, "Header too big");
+    return;
+  }
+  
+  /* alloc more mem when buffer full */
+  /* TODO extract this into buffer.c and optimize */
+  /* TODO store big body in tempfile */
+  if (connection->read_buffer.len >= connection->read_buffer.salloc) {
+    char *new, *old;
     
-    /* alloc more mem when buffer full */
-    /* TODO extract this into buffer.c and optimize */
-    /* TODO store big body in tempfile */
-    if (connection->read_buffer.len >= connection->read_buffer.salloc) {
-      char *new, *old;
+    /* TODO if last alloc, just alloc next block */
+    old = connection->read_buffer.ptr;
+    new = (char *) palloc(connection->buffer_pool,
+                          connection->read_buffer.nalloc + 1);
+    if (new == NULL)
+      rb_sys_fail("palloc");
       
-      old = connection->read_buffer.ptr;
-      new = (char *) palloc(connection->buffer_pool,
-                            connection->read_buffer.nalloc * 2);
-      if (new == NULL)
-        rb_sys_fail("palloc");
-        
-      memcpy(new, old, connection->read_buffer.len);
+    memcpy(new, old, connection->read_buffer.len);
 
-      connection->read_buffer.ptr = new;
-      connection->read_buffer.nalloc *= 2;
-      connection->read_buffer.salloc *= 2;
-      pfree(connection->buffer_pool, old);
-    }
-    
-    memcpy(connection->read_buffer.ptr + connection->read_buffer.len, buf, len);
-    
-  } else {
+    connection->read_buffer.ptr = new;
+    connection->read_buffer.nalloc ++;
+    connection->read_buffer.salloc += connection->buffer_pool->size;
+    pfree(connection->buffer_pool, old);
+  }
+  
+  memcpy(connection->read_buffer.ptr + connection->read_buffer.len, buf, len);
+  connection->read_buffer.len += len;
+  
+  if (!http_parser_is_finished(&connection->parser)) {
     /* header not all received, we continue parsing ... */
     
-    if (connection->parser.nread + len > THIN_MAX_HEADER) {
-      thin_connection_error(connection, "Header too big");
-      return;
-    }
-    
     /* terminate string with null (required by ragel v5) */
-    buf[len] = '\0';
+    memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
     
     /* parse the request into connection->env */
-    http_parser_execute(&connection->parser, buf, len, connection->parser.nread);
+    connection->parser.nread = http_parser_execute(&connection->parser,
+                                                    connection->read_buffer.ptr,
+                                                    connection->read_buffer.len,
+                                                    connection->parser.nread);
   
     /* parser error */
     if (http_parser_has_error(&connection->parser)) {
