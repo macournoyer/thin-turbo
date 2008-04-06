@@ -30,7 +30,7 @@
 #define THIN_LISTEN_BACKLOG    511
 #endif
 #define THIN_CONNECTIONS_SIZE  100
-#define THIN_BUFFER_SLICES     (80 + 32) * 2 /* big enough so we can fit MAX_HEADER */
+#define THIN_BUFFER_SLICES     (80 + 32) /* big enough so we can fit MAX_HEADER */
 #define THIN_BUFFER_SIZE       1024
 
 /* TODO move this to parser ... */
