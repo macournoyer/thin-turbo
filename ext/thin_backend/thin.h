@@ -32,8 +32,6 @@
 #define CONNECTIONS_SIZE  100
 #define BUFFER_SLICES     (80 + 32) /* big enough so we can fit MAX_HEADER */
 #define BUFFER_SIZE       1024
-
-/* TODO move this to parser ... */
 #define MAX_HEADER        1024 * (80 + 32)
 
 

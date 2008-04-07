@@ -47,7 +47,7 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   connection_t *c = get_ev_data(connection, watcher, read);
   size_t        n;
   char          buf[BUFFER_SIZE];
-
+  
   n = recv(c->fd, buf, BUFFER_SIZE, 0);
   
   if (n == -1) {
@@ -300,7 +300,7 @@ void connections_init()
   /* Intern some Ruby string */
   sInternedCall = rb_intern("call");
   sInternedKeys = rb_intern("keys");
-  sRackInput = rb_obj_freeze(rb_str_new2("rack.input"));
+  sRackInput    = rb_obj_freeze(rb_str_new2("rack.input"));
 }
 
 void connections_create(array_t *connections, size_t num)
@@ -310,6 +310,7 @@ void connections_create(array_t *connections, size_t num)
   
   for (i = 0; i <= num; ++i) {
     connection = array_push(connections);
+    assert(connection);
     connection->open = 0;
     parser_callbacks_setup(connection);
   }

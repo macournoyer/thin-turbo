@@ -21,23 +21,22 @@ array_t * array_create(uint num, size_t size)
 
 void * array_push(array_t *a)
 {
-  void   *item, *old, *new;
-  size_t  size;
+  void *item;
   
   if (a->nitems == a->nalloc) {
     /* array is full, double the size */
+
+    void   *new;
+    size_t  size;
+    
     size = a->size * a->nalloc;
 
-    new = malloc(2 * size);
+    new = realloc(a->items, 2 * size);
     if (new == NULL)
       return NULL;
-
-    memcpy(new, a->items, size);
-    old = a->items;
+    
     a->items = new;
     a->nalloc *= 2;
-    
-    free(old);
   }
   
   item = (u_char *) a->items + a->size * a->nitems;
