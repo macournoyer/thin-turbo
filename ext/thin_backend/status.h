@@ -1,7 +1,7 @@
 #ifndef _STATUS_H_
 #define _STATUS_H_
 
-static char *thin_status_lines[] = {
+static char *status_lines[] = {
   "100 Continue", 
   "101 Switching Protocols", 
   "200 OK", 
@@ -43,7 +43,7 @@ static char *thin_status_lines[] = {
 
 #define def_status_code(index, code) case code: i = index; break
 
-static inline char * thin_status(int code)
+static inline char * get_status_line(int code)
 {
   int i = 2; /* default 200 OK */
 
@@ -87,7 +87,7 @@ static inline char * thin_status(int code)
     def_status_code(36, 505);
   };
   
-  return thin_status_lines[i];
+  return status_lines[i];
 }
 
 #endif /* _STATUS_H_ */

@@ -29,7 +29,7 @@ static VALUE global_path_info;
 static void http_field(void *data, const char *field, size_t flen, const char *value, size_t vlen)
 {
   char *ch, *end;
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE v = Qnil;
   VALUE f = Qnil;
 
@@ -50,7 +50,7 @@ static void http_field(void *data, const char *field, size_t flen, const char *v
 
 static void request_method(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -59,7 +59,7 @@ static void request_method(void *data, const char *at, size_t length)
 
 static void request_uri(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -68,7 +68,7 @@ static void request_uri(void *data, const char *at, size_t length)
 
 static void fragment(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -77,7 +77,7 @@ static void fragment(void *data, const char *at, size_t length)
 
 static void request_path(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -87,7 +87,7 @@ static void request_path(void *data, const char *at, size_t length)
 
 static void query_string(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = Qnil;
 
   val = rb_str_new(at, length);
@@ -96,7 +96,7 @@ static void query_string(void *data, const char *at, size_t length)
 
 static void http_version(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = rb_str_new(at, length);
   rb_hash_aset(req, global_http_version, val);
 }
@@ -106,7 +106,7 @@ static void http_version(void *data, const char *at, size_t length)
 
 static void header_done(void *data, const char *at, size_t length)
 {
-  thin_connection_t *connection = (thin_connection_t*) data;
+  connection_t *connection = (connection_t*) data;
   VALUE              env        = connection->env;
   VALUE              temp       = Qnil;
   VALUE              ctype      = Qnil;
@@ -147,7 +147,7 @@ static void header_done(void *data, const char *at, size_t length)
 
 static void content_length(void *data, const char *at, size_t length)
 {
-  thin_connection_t *connection = (thin_connection_t*)(data);
+  connection_t *connection = (connection_t*)(data);
   int                i, mult;
   
   connection->content_length = 0;
@@ -160,12 +160,12 @@ static void content_length(void *data, const char *at, size_t length)
 
 static void content_type(void *data, const char *at, size_t length)
 {
-  VALUE req = ((thin_connection_t*) data)->env;
+  VALUE req = ((connection_t*) data)->env;
   VALUE val = rb_str_new(at, length);
   rb_hash_aset(req, global_content_type, val);
 }
 
-void thin_parser_callbacks_init()
+void parser_callbacks_init()
 {
   DEF_GLOBAL(empty, "");
   DEF_GLOBAL(http_prefix, "HTTP_");
@@ -191,7 +191,7 @@ void thin_parser_callbacks_init()
   DEF_GLOBAL(path_info, "PATH_INFO");
 }
 
-void thin_setup_parser_callbacks(thin_connection_t *connection)
+void parser_callbacks_setup(connection_t *connection)
 {
   http_parser_init(&(connection->parser));
   connection->parser.data = connection;

@@ -32,7 +32,7 @@ libev_dir = File.expand_path(dir + '/../libev')
 $CFLAGS << " -I#{libev_dir} " << flags.join(' ')
 $defs << "-DRUBY_VERSION_CODE=#{RUBY_VERSION.gsub(/\D/, '')}"
 
-dir_config("thin_backend")
+dir_config("backend")
 have_library("c", "main")
 
-create_makefile("thin_backend")
+create_makefile("backend")

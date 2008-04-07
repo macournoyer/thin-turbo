@@ -25,27 +25,27 @@
 #include "status.h"
 
 #ifdef __FreeBSD__
-#define THIN_LISTEN_BACKLOG    -1
+#define LISTEN_BACKLOG    -1
 #else
-#define THIN_LISTEN_BACKLOG    511
+#define LISTEN_BACKLOG    511
 #endif
-#define THIN_CONNECTIONS_SIZE  100
-#define THIN_BUFFER_SLICES     (80 + 32) /* big enough so we can fit MAX_HEADER */
-#define THIN_BUFFER_SIZE       1024
+#define CONNECTIONS_SIZE  100
+#define BUFFER_SLICES     (80 + 32) /* big enough so we can fit MAX_HEADER */
+#define BUFFER_SIZE       1024
 
 /* TODO move this to parser ... */
-#define THIN_MAX_HEADER        1024 * (80 + 32)
+#define MAX_HEADER        1024 * (80 + 32)
 
 
 #define LF     (u_char) 10
 #define CR     (u_char) 13
 #define CRLF   "\x0d\x0a"
 
-typedef struct thin_backend_s thin_backend_t;
-typedef struct thin_buffer_s thin_buffer_t;
-typedef struct thin_connection_s thin_connection_t;
+typedef struct backend_s backend_t;
+typedef struct buffer_s buffer_t;
+typedef struct connection_s connection_t;
 
-struct thin_buffer_s {
+struct buffer_s {
   size_t  nalloc; /* num slices alloced */
   size_t  salloc; /* total size alloced */
   size_t  len;
@@ -53,24 +53,24 @@ struct thin_buffer_s {
   char   *ptr;
 };
 
-struct thin_connection_s {
+struct connection_s {
   /* socket */
   unsigned            open : 1;
   int                 fd;
   struct sockaddr_in  remote_addr;
     
   /* request */
-  thin_buffer_t       read_buffer;
+  buffer_t            read_buffer;
   http_parser         parser;
   VALUE               env;
   VALUE               input;
   size_t              content_length;
   
   /* response */
-  thin_buffer_t       write_buffer;
+  buffer_t            write_buffer;
   
   /* backend */
-  thin_backend_t     *backend;
+  backend_t          *backend;
   pool_t             *buffer_pool;
   
   /* libev */
@@ -79,7 +79,7 @@ struct thin_connection_s {
   ev_io               write_watcher;  
 };
 
-struct thin_backend_s {
+struct backend_s {
   /* socket */
   char               *address;
   unsigned            port;
@@ -109,23 +109,23 @@ struct thin_backend_s {
   ev_io_stop(conn->backend->loop, &conn->event##_watcher);
 
 #define get_ev_data(type, w, event) \
-  (thin_##type##_t *) w->data; \
-  assert(&((thin_##type##_t *)w->data)->event##_watcher == w);
+  (type##_t *) w->data; \
+  assert(&((type##_t *)w->data)->event##_watcher == w);
 
-void thin_backend_define(void);
+void backend_define(void);
 
-void thin_input_define(void);
-VALUE thin_input_new(thin_buffer_t *buf);
+void input_define(void);
+VALUE input_new(buffer_t *buf);
 
-void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void thin_connection_parse(thin_connection_t *connection, char *buf, int len);
-void thin_connection_process(thin_connection_t *connection);
-void thin_connection_close(thin_connection_t *connection);
+void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
+void connection_parse(connection_t *connection, char *buf, int len);
+void connection_process(connection_t *connection);
+void connection_close(connection_t *connection);
 
-void thin_connections_init();
-void thin_connections_create(array_t *connections, size_t num);
+void connections_init();
+void connections_create(array_t *connections, size_t num);
 
-void thin_parser_callbacks_init();
-void thin_setup_parser_callbacks(thin_connection_t *connection);
+void parser_callbacks_init();
+void parser_callbacks_setup(connection_t *connection);
 
 #endif /* _THIN_H_ */

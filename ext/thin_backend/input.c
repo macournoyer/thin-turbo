@@ -4,20 +4,20 @@
 
 static VALUE cInput;
 
-#define thin_buffer_to_s(buf) rb_str_new(buf->ptr, buf->len)
+#define buffer_to_s(buf) rb_str_new(buf->ptr, buf->len)
 
-static VALUE thin_input_gets(VALUE self)
+static VALUE input_gets(VALUE self)
 {
-  thin_buffer_t *buf = NULL;
-  DATA_GET(self, thin_buffer_t, buf);
+  buffer_t *buf = NULL;
+  DATA_GET(self, buffer_t, buf);
   
-  return thin_buffer_to_s(buf);
+  return buffer_to_s(buf);
 }
 
-static VALUE thin_input_read(int argc, VALUE *argv, VALUE self)
+static VALUE input_read(int argc, VALUE *argv, VALUE self)
 {
-  thin_buffer_t *buf = NULL;
-  DATA_GET(self, thin_buffer_t, buf);
+  buffer_t *buf = NULL;
+  DATA_GET(self, buffer_t, buf);
   VALUE vlen, str;
   int   maxlen, len;
   
@@ -40,28 +40,28 @@ static VALUE thin_input_read(int argc, VALUE *argv, VALUE self)
   return str;
 }
 
-static VALUE thin_input_each(VALUE self)
+static VALUE input_each(VALUE self)
 {
-  thin_buffer_t *buf = NULL;
-  DATA_GET(self, thin_buffer_t, buf);
+  buffer_t *buf = NULL;
+  DATA_GET(self, buffer_t, buf);
   
-  rb_yield(thin_buffer_to_s(buf));
+  rb_yield(buffer_to_s(buf));
   
   return Qnil;
 }
 
-VALUE thin_input_new(thin_buffer_t *buf)
+VALUE input_new(buffer_t *buf)
 {
   return Data_Wrap_Struct(cInput, NULL, NULL, buf);
 }
 
-void thin_input_define(void)
+void input_define(void)
 {
   /* Plug our C stuff into the Ruby world */
   VALUE mThin = rb_define_module("Thin");
   cInput = rb_define_class_under(mThin, "Input", rb_cObject);
   
-  rb_define_method(cInput, "gets", thin_input_gets, 0);
-  rb_define_method(cInput, "read", thin_input_read, -1);
-  rb_define_method(cInput, "each", thin_input_each, 0);
+  rb_define_method(cInput, "gets", input_gets, 0);
+  rb_define_method(cInput, "read", input_read, -1);
+  rb_define_method(cInput, "each", input_each, 0);
 }

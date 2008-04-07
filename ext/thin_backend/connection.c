@@ -4,26 +4,26 @@ static VALUE sInternedCall;
 static VALUE sInternedKeys;
 static VALUE sRackInput;
 
-#define thin_connection_error(connection, msg) \
+#define connection_error(connection, msg) \
   rb_funcall(connection->backend->obj, rb_intern("log_error"), 1, \
              rb_exc_new(rb_eRuntimeError, msg, strlen(msg))); \
-  thin_connection_close(connection)
+  connection_close(connection)
 
-#define thin_connection_errorno(connection) \
-  thin_connection_error(connection, strerror(errno))
+#define connection_errorno(connection) \
+  connection_error(connection, strerror(errno))
 
 /* event callbacks */
 
-static void thin_connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  thin_connection_t *connection = get_ev_data(connection, watcher, write);
+  connection_t *connection = get_ev_data(connection, watcher, write);
   
-  thin_connection_close(connection);
+  connection_close(connection);
 }
 
-static void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  thin_connection_t *connection = get_ev_data(connection, watcher, write);
+  connection_t *connection = get_ev_data(connection, watcher, write);
   int                sent;
   
   sent = send(connection->fd,
@@ -34,38 +34,38 @@ static void thin_connection_writable_cb(EV_P_ struct ev_io *watcher, int revents
   if (sent > 0) {
     connection->write_buffer.current += sent;
   } else {
-    thin_connection_errorno(connection);
+    connection_errorno(connection);
     return;    
   }
   
   if (connection->write_buffer.current == connection->write_buffer.len) {
-    watcher->cb = thin_connection_closable_cb;
+    watcher->cb = connection_closable_cb;
   }
 }
 
-static void thin_connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
+static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  thin_connection_t *connection = get_ev_data(connection, watcher, read);
+  connection_t *connection = get_ev_data(connection, watcher, read);
   size_t             n;
-  char               buf[THIN_BUFFER_SIZE];
+  char               buf[BUFFER_SIZE];
 
-  n = recv(connection->fd, buf, THIN_BUFFER_SIZE, 0);
+  n = recv(connection->fd, buf, BUFFER_SIZE, 0);
   
   if (n == -1) {
-    thin_connection_errorno(connection);
+    connection_errorno(connection);
     return;
   }
   
-  thin_connection_parse(connection, buf, n);
+  connection_parse(connection, buf, n);
 }
 
 
 /* public api */
 
-void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in remote_addr)
+void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr)
 {
-  thin_connection_t *connection = NULL;
-  thin_connection_t *connections = backend->connections->items;
+  connection_t *connection = NULL;
+  connection_t *connections = backend->connections->items;
   int                i = 0;
   
   /* select the first closed connection */
@@ -78,7 +78,7 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   
   /* no free connection found, add more */
   if (connection == NULL) {
-    thin_connections_create(backend->connections, THIN_CONNECTIONS_SIZE);
+    connections_create(backend->connections, CONNECTIONS_SIZE);
     connections = backend->connections->items;
     /* FIXME: bug here on high concurrency, causes segfault on line 88 */
     connection = &connections[++i];
@@ -110,7 +110,7 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->read_buffer.current = 0;
   
   /* assign env[rack.input] */
-  connection->input = thin_input_new(&connection->read_buffer);
+  connection->input = input_new(&connection->read_buffer);
   rb_gc_register_address(&connection->input);
   rb_hash_aset(connection->env, sRackInput, connection->input);
   
@@ -127,16 +127,16 @@ void thin_connection_start(thin_backend_t *backend, int fd, struct sockaddr_in r
   connection->parser.data = connection;
   
   /* init libev stuff */
-  watch(connection, thin_connection_readable_cb, read, EV_READ);
+  watch(connection, connection_readable_cb, read, EV_READ);
   
   /* TODO add timeout watcher */
 }
 
-void thin_connection_parse(thin_connection_t *connection, char *buf, int len)
+void connection_parse(connection_t *connection, char *buf, int len)
 {
   if (!http_parser_is_finished(&connection->parser)
-      && connection->read_buffer.len + len > THIN_MAX_HEADER) {
-    thin_connection_error(connection, "Header too big");
+      && connection->read_buffer.len + len > MAX_HEADER) {
+    connection_error(connection, "Header too big");
     return;
   }
   
@@ -178,7 +178,7 @@ void thin_connection_parse(thin_connection_t *connection, char *buf, int len)
   
     /* parser error */
     if (http_parser_has_error(&connection->parser)) {
-      thin_connection_error(connection, "Invalid request");
+      connection_error(connection, "Invalid request");
       return;
     }
   }
@@ -186,20 +186,20 @@ void thin_connection_parse(thin_connection_t *connection, char *buf, int len)
   /* request fully received */
   if (http_parser_is_finished(&connection->parser) && connection->read_buffer.len >= connection->content_length) {
     unwatch(connection, read);
-    thin_connection_process(connection);
+    connection_process(connection);
   }
 }
 
-void thin_connection_send_status(thin_connection_t *connection, const int status)
+void connection_send_status(connection_t *connection, const int status)
 {
   size_t n;
   
-  n = sprintf(connection->write_buffer.ptr, "HTTP/1.1 %s" CRLF, thin_status(status));
+  n = sprintf(connection->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
   
   connection->write_buffer.len = n;
 }
 
-void thin_connection_send_headers(thin_connection_t *connection, VALUE headers)
+void connection_send_headers(connection_t *connection, VALUE headers)
 {
   VALUE   hash, keys, key, value;
   size_t  i, n;
@@ -224,7 +224,7 @@ void thin_connection_send_headers(thin_connection_t *connection, VALUE headers)
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
-  thin_connection_t *conn = (thin_connection_t *) val_conn;
+  connection_t *conn = (connection_t *) val_conn;
   size_t             len  = RSTRING_LEN(chunk);
   
   memcpy(conn->write_buffer.ptr + conn->write_buffer.len, RSTRING_PTR(chunk), len);
@@ -233,7 +233,7 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
   return Qnil;
 }
 
-int thin_connection_send_body(thin_connection_t *conn, VALUE body)
+int connection_send_body(connection_t *conn, VALUE body)
 {
   if (TYPE(body) == T_STRING) {
     /* Calling String#each creates several other strings which is slower and use more mem,
@@ -250,7 +250,7 @@ int thin_connection_send_body(thin_connection_t *conn, VALUE body)
   }
 }
 
-void thin_connection_process(thin_connection_t *connection)
+void connection_process(connection_t *connection)
 {
   /* Call the app to process the request */
   VALUE response = rb_funcall_rescue(connection->backend->app, sInternedCall, 1, connection->env);
@@ -258,7 +258,7 @@ void thin_connection_process(thin_connection_t *connection)
   if (response == Qundef) {
     /* log any error */
     rb_funcall(connection->backend->obj, rb_intern("log_error"), 0);
-    thin_connection_close(connection);
+    connection_close(connection);
   } else {
     /* store response info and prepare for writing */
     int   status  = FIX2INT(rb_ary_entry(response, 0));
@@ -266,15 +266,15 @@ void thin_connection_process(thin_connection_t *connection)
     VALUE body    = rb_ary_entry(response, 2);
     
     /* TODO grow buffer if too small */
-    thin_connection_send_status(connection, status);
-    thin_connection_send_headers(connection, headers);
-    thin_connection_send_body(connection, body);
+    connection_send_status(connection, status);
+    connection_send_headers(connection, headers);
+    connection_send_body(connection, body);
   
-    watch(connection, thin_connection_writable_cb, write, EV_WRITE);
+    watch(connection, connection_writable_cb, write, EV_WRITE);
   }
 }
 
-void thin_connection_close(thin_connection_t *connection)
+void connection_close(connection_t *connection)
 {
   unwatch(connection, read);
   unwatch(connection, write);
@@ -301,7 +301,7 @@ void thin_connection_close(thin_connection_t *connection)
 
 /* connections */
 
-void thin_connections_init()
+void connections_init()
 {
   /* Intern some Ruby string */
   sInternedCall = rb_intern("call");
@@ -309,14 +309,14 @@ void thin_connections_init()
   sRackInput = rb_obj_freeze(rb_str_new2("rack.input"));
 }
 
-void thin_connections_create(array_t *connections, size_t num)
+void connections_create(array_t *connections, size_t num)
 {
-  thin_connection_t *connection;
+  connection_t *connection;
   int                i;
   
   for (i = 0; i <= num; ++i) {
     connection = array_push(connections);
     connection->open = 0;
-    thin_setup_parser_callbacks(connection);
+    parser_callbacks_setup(connection);
   }
 }
