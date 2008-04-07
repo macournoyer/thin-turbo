@@ -4,59 +4,58 @@ static VALUE sInternedCall;
 static VALUE sInternedKeys;
 static VALUE sRackInput;
 
-#define connection_error(connection, msg) \
-  rb_funcall(connection->backend->obj, rb_intern("log_error"), 1, \
-             rb_exc_new(rb_eRuntimeError, msg, strlen(msg))); \
-  connection_close(connection)
+#define connection_error(c, msg) \
+  log_error(c->backend, msg); \
+  connection_close(c)
 
-#define connection_errorno(connection) \
-  connection_error(connection, strerror(errno))
+#define connection_errno(c) \
+  connection_error(c, strerror(errno))
 
 /* event callbacks */
 
 static void connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  connection_t *connection = get_ev_data(connection, watcher, write);
+  connection_t *c = get_ev_data(connection, watcher, write);
   
-  connection_close(connection);
+  connection_close(c);
 }
 
 static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  connection_t *connection = get_ev_data(connection, watcher, write);
-  int                sent;
+  connection_t *c = get_ev_data(connection, watcher, write);
+  int           sent;
   
-  sent = send(connection->fd,
-              (char *) connection->write_buffer.ptr + connection->write_buffer.current,
-              connection->write_buffer.len - connection->write_buffer.current,
+  sent = send(c->fd,
+              (char *) c->write_buffer.ptr + c->write_buffer.current,
+              c->write_buffer.len - c->write_buffer.current,
               0);
   
   if (sent > 0) {
-    connection->write_buffer.current += sent;
+    c->write_buffer.current += sent;
   } else {
-    connection_errorno(connection);
+    connection_errno(c);
     return;    
   }
   
-  if (connection->write_buffer.current == connection->write_buffer.len) {
+  if (c->write_buffer.current == c->write_buffer.len) {
     watcher->cb = connection_closable_cb;
   }
 }
 
 static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  connection_t *connection = get_ev_data(connection, watcher, read);
-  size_t             n;
-  char               buf[BUFFER_SIZE];
+  connection_t *c = get_ev_data(connection, watcher, read);
+  size_t        n;
+  char          buf[BUFFER_SIZE];
 
-  n = recv(connection->fd, buf, BUFFER_SIZE, 0);
+  n = recv(c->fd, buf, BUFFER_SIZE, 0);
   
   if (n == -1) {
-    connection_errorno(connection);
+    connection_errno(c);
     return;
   }
   
-  connection_parse(connection, buf, n);
+  connection_parse(c, buf, n);
 }
 
 
@@ -64,142 +63,138 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr)
 {
-  connection_t *connection = NULL;
-  connection_t *connections = backend->connections->items;
-  int                i = 0;
+  connection_t *c  = NULL;
+  connection_t *cs = backend->connections->items;
+  int           i  = 0;
   
   /* select the first closed connection */
   for (i = 0; i < backend->connections->nitems; i++) {
-    if (!connections[i].open) {
-      connection = &connections[i];
+    if (!cs[i].open) {
+      c = &cs[i];
       break;
     }
   }
   
   /* no free connection found, add more */
-  if (connection == NULL) {
+  if (c == NULL) {
     connections_create(backend->connections, CONNECTIONS_SIZE);
-    connections = backend->connections->items;
+    cs = backend->connections->items;
     /* FIXME: bug here on high concurrency, causes segfault on line 88 */
-    connection = &connections[++i];
+    c = &cs[++i];
   }
   
-  assert(connection != NULL);
-  assert(!connection->open);
+  assert(c != NULL);
+  assert(!c->open);
   
   /* init connection */
-  connection->open = 1;
-  connection->loop = backend->loop;
-  connection->buffer_pool = backend->buffer_pool;
-  connection->backend = backend;
-  connection->content_length = 0;
-  connection->fd = fd;
-  connection->remote_addr = remote_addr;
+  c->open           = 1;
+  c->loop           = backend->loop;
+  c->buffer_pool    = backend->buffer_pool;
+  c->backend        = backend;
+  c->content_length = 0;
+  c->fd             = fd;
+  c->remote_addr    = remote_addr;
   
   /* mark as used to Ruby GC */
-  connection->env = rb_hash_new();
-  rb_gc_register_address(&connection->env);
+  c->env = rb_hash_new();
+  rb_gc_register_address(&c->env);
   
   /* alloc read buffer from pool */
-  connection->read_buffer.ptr = palloc(connection->buffer_pool, 1);
-  if (connection->read_buffer.ptr == NULL)
-    rb_sys_fail("palloc");
-  connection->read_buffer.nalloc = 1;
-  connection->read_buffer.salloc = connection->buffer_pool->size;
-  connection->read_buffer.len = 0;
-  connection->read_buffer.current = 0;
+  c->read_buffer.ptr     = palloc(c->buffer_pool, 1);
+  assert(c->read_buffer.ptr);
+  c->read_buffer.nalloc  = 1;
+  c->read_buffer.salloc  = c->buffer_pool->size;
+  c->read_buffer.len     = 0;
+  c->read_buffer.current = 0;
   
   /* assign env[rack.input] */
-  connection->input = input_new(&connection->read_buffer);
-  rb_gc_register_address(&connection->input);
-  rb_hash_aset(connection->env, sRackInput, connection->input);
+  c->input = input_new(&c->read_buffer);
+  rb_gc_register_address(&c->input);
+  rb_hash_aset(c->env, sRackInput, c->input);
   
-  connection->write_buffer.ptr = palloc(connection->buffer_pool, 1);
-  if (connection->write_buffer.ptr == NULL)
-    rb_sys_fail("palloc");
-  connection->write_buffer.nalloc = 1;
-  connection->write_buffer.salloc = connection->buffer_pool->size;
-  connection->write_buffer.len = 0;
-  connection->write_buffer.current = 0;
+  /* alloc write buffer from pool */
+  c->write_buffer.ptr     = palloc(c->buffer_pool, 1);
+  assert(c->write_buffer.ptr);
+  c->write_buffer.nalloc  = 1;
+  c->write_buffer.salloc  = c->buffer_pool->size;
+  c->write_buffer.len     = 0;
+  c->write_buffer.current = 0;
   
   /* reinit parser */
-  http_parser_init(&connection->parser);
-  connection->parser.data = connection;
+  http_parser_init(&c->parser);
+  c->parser.data = c;
   
   /* init libev stuff */
-  watch(connection, connection_readable_cb, read, EV_READ);
+  watch(c, connection_readable_cb, read, EV_READ);
   
   /* TODO add timeout watcher */
 }
 
-void connection_parse(connection_t *connection, char *buf, int len)
+void connection_parse(connection_t *c, char *buf, int len)
 {
-  if (!http_parser_is_finished(&connection->parser)
-      && connection->read_buffer.len + len > MAX_HEADER) {
-    connection_error(connection, "Header too big");
+  if (!http_parser_is_finished(&c->parser) && c->read_buffer.len + len > MAX_HEADER) {
+    connection_error(c, "Header too big");
     return;
   }
   
   /* alloc more mem when buffer full */
   /* TODO extract this into buffer.c and optimize */
   /* TODO store big body in tempfile */
-  if (connection->read_buffer.len >= connection->read_buffer.salloc) {
+  if (c->read_buffer.len >= c->read_buffer.salloc) {
     char *new, *old;
     
     /* TODO if last alloc, just alloc next block */
-    old = connection->read_buffer.ptr;
-    new = (char *) palloc(connection->buffer_pool,
-                          connection->read_buffer.nalloc + 1);
-    if (new == NULL)
-      rb_sys_fail("palloc");
-      
-    memcpy(new, old, connection->read_buffer.len);
+    old = c->read_buffer.ptr;
+    new = (char *) palloc(c->buffer_pool, c->read_buffer.nalloc + 1);
+    assert(new);
+    
+    memcpy(new, old, c->read_buffer.len);
 
-    connection->read_buffer.ptr = new;
-    connection->read_buffer.nalloc ++;
-    connection->read_buffer.salloc += connection->buffer_pool->size;
-    pfree(connection->buffer_pool, old);
+    c->read_buffer.ptr     = new;
+    c->read_buffer.nalloc ++;
+    c->read_buffer.salloc += c->buffer_pool->size;
+    pfree(c->buffer_pool, old);
   }
   
-  memcpy(connection->read_buffer.ptr + connection->read_buffer.len, buf, len);
-  connection->read_buffer.len += len;
+  memcpy(c->read_buffer.ptr + c->read_buffer.len, buf, len);
+  c->read_buffer.len += len;
   
-  if (!http_parser_is_finished(&connection->parser)) {
+  if (!http_parser_is_finished(&c->parser)) {
     /* header not all received, we continue parsing ... */
     
     /* terminate string with null (required by ragel v5) */
-    memset(connection->read_buffer.ptr + connection->read_buffer.len, '\0', 1);
+    memset(c->read_buffer.ptr + c->read_buffer.len, '\0', 1);
     
     /* parse the request into connection->env */
-    connection->parser.nread = http_parser_execute(&connection->parser,
-                                                    connection->read_buffer.ptr,
-                                                    connection->read_buffer.len,
-                                                    connection->parser.nread);
+    c->parser.nread = http_parser_execute(&c->parser,
+                                           c->read_buffer.ptr,
+                                           c->read_buffer.len,
+                                           c->parser.nread);
   
     /* parser error */
-    if (http_parser_has_error(&connection->parser)) {
-      connection_error(connection, "Invalid request");
+    if (http_parser_has_error(&c->parser)) {
+      connection_error(c, "Invalid request");
       return;
     }
   }
   
   /* request fully received */
-  if (http_parser_is_finished(&connection->parser) && connection->read_buffer.len >= connection->content_length) {
-    unwatch(connection, read);
-    connection_process(connection);
+  if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
+    unwatch(c, read);
+    connection_process(c);
   }
 }
 
-void connection_send_status(connection_t *connection, const int status)
+void connection_send_status(connection_t *c, const int status)
 {
   size_t n;
   
-  n = sprintf(connection->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
+  n = sprintf(c->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
   
-  connection->write_buffer.len = n;
+  c->write_buffer.len = n;
 }
 
-void connection_send_headers(connection_t *connection, VALUE headers)
+void connection_send_headers(connection_t *c, VALUE headers)
 {
   VALUE   hash, keys, key, value;
   size_t  i, n;
@@ -210,55 +205,54 @@ void connection_send_headers(connection_t *connection, VALUE headers)
   for (i = 0; i < RARRAY_LEN(keys); ++i) {
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
-    n += sprintf((char *) connection->write_buffer.ptr + connection->write_buffer.len +  n,
+    n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len +  n,
                  "%s: %s" CRLF,
                  RSTRING_PTR(key),
                  RSTRING_PTR(value));
   }
-
-  connection->write_buffer.len += n;
+  c->write_buffer.len += n;
   
-  memcpy(connection->write_buffer.ptr + connection->write_buffer.len, CRLF, 2);
-  connection->write_buffer.len += 2;
+  memcpy(c->write_buffer.ptr + c->write_buffer.len, CRLF, 2);
+  c->write_buffer.len += 2;
 }
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
-  connection_t *conn = (connection_t *) val_conn;
-  size_t             len  = RSTRING_LEN(chunk);
+  connection_t *c = (connection_t *) val_conn;
+  size_t        len  = RSTRING_LEN(chunk);
   
-  memcpy(conn->write_buffer.ptr + conn->write_buffer.len, RSTRING_PTR(chunk), len);
-  conn->write_buffer.len += len;
+  memcpy(c->write_buffer.ptr + c->write_buffer.len, RSTRING_PTR(chunk), len);
+  c->write_buffer.len += len;
   
   return Qnil;
 }
 
-int connection_send_body(connection_t *conn, VALUE body)
+int connection_send_body(connection_t *c, VALUE body)
 {
   if (TYPE(body) == T_STRING) {
     /* Calling String#each creates several other strings which is slower and use more mem,
      * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */
     size_t len = RSTRING_LEN(body);
     
-    memcpy(conn->write_buffer.ptr + conn->write_buffer.len, RSTRING_PTR(body), len);
-    conn->write_buffer.len += len;
+    memcpy(c->write_buffer.ptr + c->write_buffer.len, RSTRING_PTR(body), len);
+    c->write_buffer.len += len;
     
   } else {
     /* Iterate over body#each and send each yielded chunk */
-    rb_iterate(rb_each, body, iter_body, (VALUE) conn);
+    rb_iterate(rb_each, body, iter_body, (VALUE) c);
     
   }
 }
 
-void connection_process(connection_t *connection)
+void connection_process(connection_t *c)
 {
   /* Call the app to process the request */
-  VALUE response = rb_funcall_rescue(connection->backend->app, sInternedCall, 1, connection->env);
+  VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
 
   if (response == Qundef) {
     /* log any error */
-    rb_funcall(connection->backend->obj, rb_intern("log_error"), 0);
-    connection_close(connection);
+    rb_funcall(c->backend->obj, rb_intern("log_error"), 0);
+    connection_close(c);
   } else {
     /* store response info and prepare for writing */
     int   status  = FIX2INT(rb_ary_entry(response, 0));
@@ -266,36 +260,36 @@ void connection_process(connection_t *connection)
     VALUE body    = rb_ary_entry(response, 2);
     
     /* TODO grow buffer if too small */
-    connection_send_status(connection, status);
-    connection_send_headers(connection, headers);
-    connection_send_body(connection, body);
+    connection_send_status(c, status);
+    connection_send_headers(c, headers);
+    connection_send_body(c, body);
   
-    watch(connection, connection_writable_cb, write, EV_WRITE);
+    watch(c, connection_writable_cb, write, EV_WRITE);
   }
 }
 
-void connection_close(connection_t *connection)
+void connection_close(connection_t *c)
 {
-  unwatch(connection, read);
-  unwatch(connection, write);
+  unwatch(c, read);
+  unwatch(c, write);
 
-  close(connection->fd);
+  close(c->fd);
   
-  if (connection->read_buffer.ptr != NULL)
-    pfree(connection->buffer_pool, connection->read_buffer.ptr);
-  connection->read_buffer.salloc = 0;
-  connection->read_buffer.nalloc = 0;
+  if (c->read_buffer.ptr != NULL)
+    pfree(c->buffer_pool, c->read_buffer.ptr);
+  c->read_buffer.salloc = 0;
+  c->read_buffer.nalloc = 0;
   
-  if (connection->write_buffer.ptr != NULL)
-    pfree(connection->buffer_pool, connection->write_buffer.ptr);
-  connection->write_buffer.salloc = 0;
-  connection->write_buffer.nalloc = 0;
+  if (c->write_buffer.ptr != NULL)
+    pfree(c->buffer_pool, c->write_buffer.ptr);
+  c->write_buffer.salloc = 0;
+  c->write_buffer.nalloc = 0;
   
   /* tell Ruby GC vars are not used anymore */
-  rb_gc_unregister_address(&connection->env);
-  rb_gc_unregister_address(&connection->input);
+  rb_gc_unregister_address(&c->env);
+  rb_gc_unregister_address(&c->input);
   
-  connection->open = 0;
+  c->open = 0;
 }
 
 

@@ -8,20 +8,24 @@
 
 static void backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  backend_t    *server = get_ev_data(backend, watcher, accept);
+  backend_t         *backend = get_ev_data(backend, watcher, accept);
   struct sockaddr_in remote_addr;
   socklen_t          sin_size = sizeof(remote_addr);
   int                fd, flags;
   
-  fd = accept(server->fd, (struct sockaddr *)&remote_addr, &sin_size);
-  if (fd == -1)
-    rb_sys_fail("accept");
+  fd = accept(backend->fd, (struct sockaddr *)&remote_addr, &sin_size);
+  if (fd == -1) {
+    log_errno(backend);
+    return;
+  }
   
   flags = fcntl(fd, F_GETFL, 0);
-  if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) < 0)
-    rb_sys_fail("fcntl");
+  if ((fcntl(fd, F_SETFL, flags | O_NONBLOCK)) < 0) {
+    log_errno(backend);
+    return;
+  }
   
-  connection_start(server, fd, remote_addr);
+  connection_start(backend, fd, remote_addr);
 }
 
 

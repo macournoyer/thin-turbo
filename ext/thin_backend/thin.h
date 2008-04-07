@@ -112,6 +112,12 @@ struct backend_s {
   (type##_t *) w->data; \
   assert(&((type##_t *)w->data)->event##_watcher == w);
 
+#define log_error(b, msg) \
+  rb_funcall(b->obj, rb_intern("log_error"), 1, \
+             rb_exc_new(rb_eRuntimeError, msg, strlen(msg)))
+
+#define log_errno(b) log_error(b, strerror(errno))
+
 void backend_define(void);
 
 void input_define(void);
