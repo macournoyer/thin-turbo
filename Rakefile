@@ -4,13 +4,11 @@ SUDO     = (WIN ? "" : "sudo")
 
 require 'rake'
 require 'rake/clean'
-require 'lib/thin'
 
 Dir['tasks/**/*.rake'].each { |rake| load rake }
 
-task :default => :spec
+task :default => :test
 
-ext_task :thin_parser
 ext_task :thin_backend
 
 ragel_task 'ext/thin_backend', 'parser.rl', 'parser.c'
