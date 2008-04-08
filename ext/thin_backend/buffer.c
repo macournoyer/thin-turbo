@@ -21,26 +21,29 @@ void buffer_free(buffer_t *buf)
 
 static inline void buffer_grow(buffer_t *buf, size_t size)
 {
-  char *new, *old;
+  char   *new, *old;
+  size_t  num = (size_t) (size + 0.5) / (float) buf->pool->size;
   
   /* TODO store big body in tempfile */
   /* TODO if last alloc, just alloc next block */
+  
   old = buf->ptr;
-  new = (char *) palloc(buf->pool, buf->nalloc + 1);
+  new = (char *) palloc(buf->pool, buf->nalloc + num);
   assert(new);
   
   memcpy(new, old, buf->len);
 
   buf->ptr     = new;
-  buf->nalloc ++;
-  buf->salloc += buf->pool->size;
+  buf->nalloc += num;
+  buf->salloc += buf->pool->size * num;
+  
   pfree(buf->pool, old);
 }
 
 void buffer_append(buffer_t *buf, const char *ptr, size_t len)
 {
   /* alloc more mem when buffer full */
-  if (buf->len >= buf->salloc)
+  if (buf->len + len > buf->salloc)
     buffer_grow(buf, len);
   
   memcpy(buf->ptr + buf->len, ptr, len);

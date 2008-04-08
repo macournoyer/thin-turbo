@@ -17,3 +17,11 @@
     printf(#expected " expected but was " #actual ", at line %d\n", __LINE__); \
     failures++; \
   }
+
+#define assert_str_equal(expected, actual) \
+  assertions++; \
+  if (strcmp(expected, actual) != 0) { \
+    printf("%s expected but was %s, at line %d\n", expected, actual, __LINE__); \
+    failures++; \
+  }
+  

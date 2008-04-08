@@ -233,7 +233,6 @@ void connection_process(connection_t *c)
     VALUE headers = rb_ary_entry(response, 1);
     VALUE body    = rb_ary_entry(response, 2);
     
-    /* TODO grow buffer if too small */
     connection_send_status(c, status);
     connection_send_headers(c, headers);
     connection_send_body(c, body);
