@@ -1,6 +1,6 @@
 #include "thin.h"
 
-void Init_backend()
+void Init_thin_backend()
 {  
   /* Initialize internal stuff */
   backend_define();

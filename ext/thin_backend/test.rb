@@ -1,4 +1,4 @@
-require 'backend'
+require 'thin_backend'
 
 class Thin::Backend 
   def start

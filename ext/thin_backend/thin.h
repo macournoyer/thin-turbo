@@ -20,6 +20,7 @@
 #include "ruby.h"
 #include "ext_help.h"
 #include "array.h"
+#include "buffer.h"
 #include "palloc.h"
 #include "parser.h"
 #include "status.h"
@@ -40,16 +41,7 @@
 #define CRLF   "\x0d\x0a"
 
 typedef struct backend_s backend_t;
-typedef struct buffer_s buffer_t;
 typedef struct connection_s connection_t;
-
-struct buffer_s {
-  size_t  nalloc; /* num slices alloced */
-  size_t  salloc; /* total size alloced */
-  size_t  len;
-  size_t  current;
-  char   *ptr;
-};
 
 struct connection_s {
   /* socket */

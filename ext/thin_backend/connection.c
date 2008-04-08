@@ -100,25 +100,13 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   rb_gc_register_address(&c->env);
   
   /* alloc read buffer from pool */
-  c->read_buffer.ptr     = palloc(c->buffer_pool, 1);
-  assert(c->read_buffer.ptr);
-  c->read_buffer.nalloc  = 1;
-  c->read_buffer.salloc  = c->buffer_pool->size;
-  c->read_buffer.len     = 0;
-  c->read_buffer.current = 0;
+  buffer_init(&c->read_buffer, c->buffer_pool);
+  buffer_init(&c->write_buffer, c->buffer_pool);
   
   /* assign env[rack.input] */
   c->input = input_new(&c->read_buffer);
   rb_gc_register_address(&c->input);
   rb_hash_aset(c->env, sRackInput, c->input);
-  
-  /* alloc write buffer from pool */
-  c->write_buffer.ptr     = palloc(c->buffer_pool, 1);
-  assert(c->write_buffer.ptr);
-  c->write_buffer.nalloc  = 1;
-  c->write_buffer.salloc  = c->buffer_pool->size;
-  c->write_buffer.len     = 0;
-  c->write_buffer.current = 0;
   
   /* reinit parser */
   http_parser_init(&c->parser);
@@ -137,27 +125,7 @@ void connection_parse(connection_t *c, char *buf, int len)
     return;
   }
   
-  /* alloc more mem when buffer full */
-  /* TODO extract this into buffer.c and optimize */
-  /* TODO store big body in tempfile */
-  if (c->read_buffer.len >= c->read_buffer.salloc) {
-    char *new, *old;
-    
-    /* TODO if last alloc, just alloc next block */
-    old = c->read_buffer.ptr;
-    new = (char *) palloc(c->buffer_pool, c->read_buffer.nalloc + 1);
-    assert(new);
-    
-    memcpy(new, old, c->read_buffer.len);
-
-    c->read_buffer.ptr     = new;
-    c->read_buffer.nalloc ++;
-    c->read_buffer.salloc += c->buffer_pool->size;
-    pfree(c->buffer_pool, old);
-  }
-  
-  memcpy(c->read_buffer.ptr + c->read_buffer.len, buf, len);
-  c->read_buffer.len += len;
+  buffer_append(&c->read_buffer, buf, len);
   
   if (!http_parser_is_finished(&c->parser)) {
     /* header not all received, we continue parsing ... */
@@ -219,10 +187,8 @@ void connection_send_headers(connection_t *c, VALUE headers)
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
   connection_t *c = (connection_t *) val_conn;
-  size_t        len  = RSTRING_LEN(chunk);
   
-  memcpy(c->write_buffer.ptr + c->write_buffer.len, RSTRING_PTR(chunk), len);
-  c->write_buffer.len += len;
+  buffer_append(&c->write_buffer, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
   
   return Qnil;
 }
@@ -231,11 +197,8 @@ int connection_send_body(connection_t *c, VALUE body)
 {
   if (TYPE(body) == T_STRING) {
     /* Calling String#each creates several other strings which is slower and use more mem,
-     * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */
-    size_t len = RSTRING_LEN(body);
-    
-    memcpy(c->write_buffer.ptr + c->write_buffer.len, RSTRING_PTR(body), len);
-    c->write_buffer.len += len;
+     * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */    
+    buffer_append(&c->write_buffer, RSTRING_PTR(body), RSTRING_LEN(body));
     
   } else {
     /* Iterate over body#each and send each yielded chunk */
@@ -275,15 +238,8 @@ void connection_close(connection_t *c)
 
   close(c->fd);
   
-  if (c->read_buffer.ptr != NULL)
-    pfree(c->buffer_pool, c->read_buffer.ptr);
-  c->read_buffer.salloc = 0;
-  c->read_buffer.nalloc = 0;
-  
-  if (c->write_buffer.ptr != NULL)
-    pfree(c->buffer_pool, c->write_buffer.ptr);
-  c->write_buffer.salloc = 0;
-  c->write_buffer.nalloc = 0;
+  buffer_free(&c->read_buffer);
+  buffer_free(&c->write_buffer);
   
   /* tell Ruby GC vars are not used anymore */
   rb_gc_unregister_address(&c->env);
