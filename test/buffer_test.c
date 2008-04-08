@@ -51,7 +51,12 @@ void test_buffer_grow_and_append(void)
   assert_equal(3, b.nalloc);
   assert_equal(6, b.salloc);
 
-  assert_str_equal("hi you", b.ptr);
+  buffer_append(&b, " ! ", 3); /* odd num */
+  assert_equal(9, b.len);
+  assert_equal(4, b.nalloc);
+  assert_equal(8, b.salloc);
+
+  assert_str_equal("hi you ! ", b.ptr);
   
   pool_destroy(p);
 }
