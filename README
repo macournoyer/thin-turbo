@@ -1,1 +1,24 @@
+== Thin-Turbo
 New and ultra-turbo-crazy-fast backend for Thin
+
+=== Installation
+ 
+ sudo gem install thin
+ git clone git://github.com/macournoyer/thin-turbo.git
+ cd thin-turbo
+ rake install
+
+=== Usage
+
+ thin start -rthin-turbo -BThin::Backends::Turbo
+
+=== License
+Ruby License, http://www.ruby-lang.org/en/LICENSE.txt.
+
+=== Credits
+
+Thin is copyright Marc-Andre Cournoyer <macournoyer@gmail.com>
+
+Get help at http://groups.google.com/group/thin-ruby/
+Report bugs at http://thin.lighthouseapp.com/projects/7212-thin
+and major security issues directly to a team member (see COMMITTERS)
