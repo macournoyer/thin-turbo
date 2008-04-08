@@ -79,7 +79,7 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   if (c == NULL) {
     connections_create(backend->connections, CONNECTIONS_SIZE);
     cs = backend->connections->items;
-    /* FIXME: bug here on high concurrency, causes segfault on line 88 */
+    /* FIXME: bug here on high concurrency, causes segfault in libev code */
     c = &cs[++i];
   }
   
@@ -158,7 +158,6 @@ void connection_send_status(connection_t *c, const int status)
   size_t n;
   
   n = sprintf(c->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
-  
   c->write_buffer.len = n;
 }
 
@@ -173,15 +172,15 @@ void connection_send_headers(connection_t *c, VALUE headers)
   for (i = 0; i < RARRAY_LEN(keys); ++i) {
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
-    n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len +  n,
+    /* FIXME possible buffer overflow, replace w/ buffer_append or something */
+    n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len + n,
                  "%s: %s" CRLF,
                  RSTRING_PTR(key),
                  RSTRING_PTR(value));
   }
   c->write_buffer.len += n;
   
-  memcpy(c->write_buffer.ptr + c->write_buffer.len, CRLF, 2);
-  c->write_buffer.len += 2;
+  buffer_append(&c->write_buffer, CRLF, 2);
 }
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
