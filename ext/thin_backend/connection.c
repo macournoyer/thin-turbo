@@ -29,6 +29,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
               (char *) c->write_buffer.ptr + c->write_buffer.current,
               c->write_buffer.len - c->write_buffer.current,
               0);
+  ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (sent > 0) {
     c->write_buffer.current += sent;
@@ -49,6 +50,7 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   char          buf[BUFFER_SIZE];
   
   n = recv(c->fd, buf, BUFFER_SIZE, 0);
+  ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (n == -1) {
     connection_errno(c);
@@ -57,6 +59,14 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   connection_parse(c, buf, n);
 }
+
+static void connection_timeout_cb(EV_P_ struct ev_timer *watcher, int revents)
+{
+  connection_t *c = get_ev_data(connection, watcher, timeout);
+    
+  connection_close(c);
+}
+
 
 
 /* public api */
@@ -114,8 +124,10 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   
   /* init libev stuff */
   watch(c, connection_readable_cb, read, EV_READ);
-  
-  /* TODO add timeout watcher */
+  /* timeout watcher, close connection when peer not responding */
+  c->timeout_watcher.data = c;
+  ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
+  ev_timer_start(c->loop, &c->timeout_watcher);
 }
 
 void connection_parse(connection_t *c, char *buf, int len)
@@ -234,6 +246,7 @@ void connection_close(connection_t *c)
 {
   unwatch(c, read);
   unwatch(c, write);
+  ev_timer_stop(c->loop, &c->timeout_watcher);
 
   close(c->fd);
   

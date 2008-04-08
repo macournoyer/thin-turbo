@@ -26,14 +26,15 @@
 #include "status.h"
 
 #ifdef __FreeBSD__
-#define LISTEN_BACKLOG    -1
+#define LISTEN_BACKLOG     -1
 #else
-#define LISTEN_BACKLOG    511
+#define LISTEN_BACKLOG     511
 #endif
-#define CONNECTIONS_SIZE  100
-#define BUFFER_SLICES     (80 + 32) /* big enough so we can fit MAX_HEADER */
-#define BUFFER_SIZE       1024
-#define MAX_HEADER        1024 * (80 + 32)
+#define CONNECTIONS_SIZE   100
+#define CONNECTION_TIMEOUT 30.0
+#define BUFFER_SLICES      (80 + 32) /* big enough so we can fit MAX_HEADER */
+#define BUFFER_SIZE        1024
+#define MAX_HEADER         1024 * (80 + 32)
 
 
 #define LF     (u_char) 10
@@ -67,6 +68,7 @@ struct connection_s {
   struct ev_loop     *loop;
   ev_io               read_watcher;
   ev_io               write_watcher;  
+  ev_timer            timeout_watcher;
 };
 
 struct backend_s {
