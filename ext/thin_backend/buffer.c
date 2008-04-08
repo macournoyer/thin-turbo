@@ -19,32 +19,35 @@ void buffer_free(buffer_t *buf)
   buf->nalloc = 0;
 }
 
-static inline void buffer_grow(buffer_t *buf, size_t size)
+void buffer_grow(buffer_t *buf, size_t len)
 {
+  size_t  new_len = buf->len + len;
+
+  if (new_len <= buf->salloc)
+    return;
+  
   char   *new, *old;
-  size_t  num = (size_t) (size + 0.5) / (float) buf->pool->size;
+  size_t  num = (size_t) (new_len + 0.5) / (float) buf->pool->size;
   
   /* TODO store big body in tempfile */
-  /* TODO if last alloc, just alloc next block */
+  /* TODO if free space in next blocks, alloc more and don't memcpy */
   
   old = buf->ptr;
-  new = (char *) palloc(buf->pool, buf->nalloc + num);
+  new = (char *) palloc(buf->pool, num);
   assert(new);
   
   memcpy(new, old, buf->len);
 
-  buf->ptr     = new;
-  buf->nalloc += num;
-  buf->salloc += buf->pool->size * num;
+  buf->ptr    = new;
+  buf->nalloc = num;
+  buf->salloc = buf->pool->size * num;
   
   pfree(buf->pool, old);
 }
 
 void buffer_append(buffer_t *buf, const char *ptr, size_t len)
 {
-  /* alloc more mem when buffer full */
-  if (buf->len + len > buf->salloc)
-    buffer_grow(buf, len);
+  buffer_grow(buf, len);
   
   memcpy(buf->ptr + buf->len, ptr, len);
   buf->len += len;

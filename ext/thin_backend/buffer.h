@@ -16,6 +16,7 @@ struct buffer_s {
 
 void buffer_init(buffer_t *buf, pool_t *p);
 void buffer_free(buffer_t *buf);
+void buffer_grow(buffer_t *buf, size_t len);
 void buffer_append(buffer_t *buf, const char *ptr, size_t len);
 
 #endif /* _BUFFER_H_ */

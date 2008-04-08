@@ -185,6 +185,7 @@ void connection_send_headers(connection_t *c, VALUE headers)
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
     /* FIXME possible buffer overflow, replace w/ buffer_append or something */
+    buffer_grow(&c->write_buffer, n);
     n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len + n,
                  "%s: %s" CRLF,
                  RSTRING_PTR(key),
