@@ -4,7 +4,8 @@ class Benchmarker
   PORT          = 7000
   ADDRESS       = '0.0.0.0'
   TMP_POST_FILE = "/tmp/bench-post-file"
-  SERVERS       = %w(mongrel ebb thin thin-turbo)
+  # SERVERS       = %w(mongrel ebb thin thin-turbo)
+  SERVERS       = %w(ebb thin-turbo)
   
   def initialize(method, range, options={})
     @method     = method
@@ -12,7 +13,7 @@ class Benchmarker
 
     @ran        = false
     @keep_alive = options[:keep_alive]
-    @requests   = options[:requests] || 1000
+    @requests   = options[:requests] || 5000
   end
   
   def run

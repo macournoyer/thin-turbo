@@ -2,7 +2,7 @@ require 'rubygems'
 require 'rack'
 
 class App
-  MIN_SIZE = 1024
+  MIN_SIZE = 512
   
   def initialize
     @calls = 0

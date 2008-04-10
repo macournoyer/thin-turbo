@@ -10,7 +10,7 @@ options = {
   :keep_alive    => false,
 }
 range  = nil
-method = ARGV[0].to_sym
+method = (ARGV[0] || :concurrency).to_sym
 
 OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} (concurrency|upload|download) [options]"
