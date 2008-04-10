@@ -31,29 +31,30 @@ static void backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
 
 /* public api */
 
-VALUE backend_init(VALUE self, VALUE address, VALUE port, VALUE app)
+VALUE backend_set_app(VALUE self, VALUE app)
 {
   backend_t *backend = NULL;
   DATA_GET(self, backend_t, backend);
-    
+  
+  backend->app = app;
+  
+  return app;
+}
+
+VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
+{
+  backend_t *backend = NULL;
+  DATA_GET(self, backend_t, backend);
+  int sock_flags;
+  
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
-  backend->app = app;
   
   backend->local_addr.sin_family = AF_INET;
   backend->local_addr.sin_port = htons(backend->port);
   backend->local_addr.sin_addr.s_addr = inet_addr(backend->address);
   
   backend->loop = ev_default_loop(0);
-  
-  return self;
-}
-
-VALUE backend_listen(VALUE self)
-{
-  backend_t *backend = NULL;
-  DATA_GET(self, backend_t, backend);
-  int sock_flags;
 
   if ((backend->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     rb_sys_fail("socket");
@@ -95,9 +96,11 @@ VALUE backend_close(VALUE self)
   backend_t *backend = NULL;
   DATA_GET(self, backend_t, backend);
   
-  backend->open = 0;
-  ev_io_stop(backend->loop, &backend->accept_watcher);
-  close(backend->fd);
+  if (backend->open) {
+    backend->open = 0;
+    ev_io_stop(backend->loop, &backend->accept_watcher);
+    close(backend->fd);    
+  }
   
   return Qtrue;
 }
@@ -129,12 +132,12 @@ VALUE backend_alloc(VALUE klass)
 void backend_define(void)
 {
   /* Plug our C stuff into the Ruby world */
-  VALUE mThin = rb_define_module("Thin");
-  VALUE cBackend = rb_define_class_under(mThin, "Backend", rb_cObject);
+  VALUE mThin = rb_define_module_under(rb_define_module("Thin"), "Backends");
+  VALUE cBackend = rb_define_class_under(mThin, "Turbo", rb_cObject);
   
   rb_define_alloc_func(cBackend, backend_alloc);
-  rb_define_method(cBackend, "initialize", backend_init, 3);
-  rb_define_protected_method(cBackend, "listen", backend_listen, 0);
+  rb_define_method(cBackend, "app=", backend_set_app, 1);
+  rb_define_protected_method(cBackend, "listen_on_port", backend_listen_on_port, 2);
   rb_define_protected_method(cBackend, "loop!", backend_loop, 0);
   rb_define_protected_method(cBackend, "close", backend_close, 0);
 }

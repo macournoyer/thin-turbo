@@ -1,14 +1,12 @@
 require 'rubygems'
-require 'rack'
 
 class Benchmarker
   PORT          = 7000
   ADDRESS       = '0.0.0.0'
   TMP_POST_FILE = "/tmp/bench-post-file"
-  SERVERS       = %w(Mongrel EMongrel Ebb Thin Thin-Turbo)
+  SERVERS       = %w(mongrel ebb thin thin-turbo)
   
   def initialize(method, range, options={})
-    @app        = App.new
     @method     = method
     @range      = range
 
@@ -47,28 +45,9 @@ class Benchmarker
   end
   
   private
-    def start_server(handler_name)
+    def start_server(name)
       @server = fork do
-        [STDOUT, STDERR].each { |o| o.reopen "/dev/null" }
-
-        case handler_name
-        when 'EMongrel'
-          require 'swiftcore/evented_mongrel'
-          Rack::Handler::Mongrel.run @app, :Host => ADDRESS, :Port => PORT
-        when 'Thin'
-          require 'thin'
-          Rack::Handler::Thin.run @app, :Host => ADDRESS, :Port => PORT
-        when 'Thin-Turbo'
-          require File.dirname(__FILE__) + "/../lib/thin-turbo"
-          b = Thin::Backend.new(ADDRESS, PORT, @app)
-          b.start
-        when 'Ebb'
-          require 'ebb'
-          Ebb.start_server(@app, :threaded_processing => false, :port => PORT)
-        else
-          handler = Rack::Handler.const_get(handler_name)
-          handler.run @app, :Host => ADDRESS, :Port => PORT
-        end
+        exec "ruby #{File.dirname(__FILE__)}/servers/#{name}.rb"
       end
     
       sleep 2
@@ -135,28 +114,4 @@ class Benchmarker
 
       [total, virtual, real]
     end
-end
-
-class App
-  MIN_SIZE = 1024
-  
-  def initialize
-    @calls = 0
-  end
-  
-  def call(env)
-    status  = 200
-    body    = []
-    request = Rack::Request.new(env)
-    @calls += 1
-    
-    sleep request.params['wait'].to_i if request.params['wait'] && @calls % 10 == 0
-    
-    body   << 'X' * (request.params['size'] || MIN_SIZE).to_i
-    body   << "\r\n"
-    
-    headers = { 'Content-Type' => 'text/plain', 'Content-Length' => body.join.size.to_s }
-    
-    [status, headers, body]
-  end
 end

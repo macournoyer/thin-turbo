@@ -23,7 +23,7 @@ def ext_task(name)
     cd ext_dir do
       sh(WIN ? 'nmake' : 'make')
     end
-    cp ext_bundle, 'lib/'
+    # cp ext_bundle, 'lib/'
   end
 end
 

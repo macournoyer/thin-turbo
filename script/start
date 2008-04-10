@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+thin start -r lib/thin-turbo -b Thin::Backends::Turbo -R script/app.ru $@

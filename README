@@ -10,13 +10,12 @@ New and ultra-turbo-crazy-fast backend for Thin
 
 === Usage
 
- thin start -rthin-turbo -BThin::Backends::Turbo
+ thin start -r lib/thin-turbo -b Thin::Backends::Turbo ...
 
 === License
 Ruby License, http://www.ruby-lang.org/en/LICENSE.txt.
 
 === Credits
-
 Thin is copyright Marc-Andre Cournoyer <macournoyer@gmail.com>
 
 Get help at http://groups.google.com/group/thin-ruby/

@@ -4,7 +4,7 @@ require 'optparse'
 
 MB = 1024 ** 2
 CONCURRENCY_RANGE = [1, 10, 50]
-FILE_RANGE        = [1 * MB, 5 * MB, 10 * MB]
+FILE_RANGE        = [1 * MB] #, 5 * MB , 10 * MB]
 
 options = {
   :keep_alive    => false,
@@ -15,7 +15,8 @@ method = ARGV[0].to_sym
 OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} (concurrency|upload|download) [options]"
 
-  opts.on("-r", "--range", "Range used to run benchmark")       { |r| range = eval("[#{r}]") }
+  opts.on("-n NUM", "--requests", "Number of requests")         { |n| options[:requests] = n }
+  opts.on("-r EVAL", "--range", "Range used to run benchmark")  { |r| range = eval("[#{r}]") }
   opts.on("-k", "--keep-alive", "Use persistent connections")   { options[:keep_alive] = true }
   
   opts.on_tail("-h", "--help", "Show this message")     { puts opts; exit }
