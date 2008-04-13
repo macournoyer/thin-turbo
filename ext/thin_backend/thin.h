@@ -88,8 +88,9 @@ struct backend_s {
   pool_t             *buffer_pool;
   
   /* libev */
-  ev_io               accept_watcher;
   struct ev_loop     *loop;
+  ev_io               accept_watcher;
+  ev_idle             idle_watcher;
 };
 
 #define watch(conn, cb, event, ev_event) \

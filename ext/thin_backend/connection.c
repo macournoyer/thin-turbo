@@ -53,7 +53,13 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (n == -1) {
+    /* error, closing connection */
     connection_errno(c);
+    return;
+  }
+  
+  if (n == 0) {
+    /* received 0 byte, read again next loop */
     return;
   }
   
@@ -268,7 +274,9 @@ void connections_init()
   /* Intern some Ruby string */
   sInternedCall = rb_intern("call");
   sInternedKeys = rb_intern("keys");
+  
   sRackInput    = rb_obj_freeze(rb_str_new2("rack.input"));
+  rb_gc_register_address(&sRackInput);
 }
 
 void connections_create(array_t *connections, size_t num)

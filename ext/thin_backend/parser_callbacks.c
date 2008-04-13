@@ -128,10 +128,13 @@ static void header_done(void *data, const char *at, size_t length)
     }
   }
 
-  /* grab the initial body and stuff it into the hash */
   if (length > 0) {
+    /* grab the initial body and stuff it into the hash */
     memcpy(connection->read_buffer.ptr, at, length);
     connection->read_buffer.len = length;
+  } else {
+    /* reset the buffer even if no body */
+    connection->read_buffer.len = 0;
   }
   
   /* according to Rack specs, query string must be empty string if none */

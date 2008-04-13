@@ -3,6 +3,9 @@
 
 #include "thin.h"
 
+#define backend_idle_start(backend) \
+  if (!ev_is_active(&backend->idle_watcher)) { ev_idle_start(backend->loop, &backend->idle_watcher); }
+
 
 /* event callbacks */
 
@@ -26,6 +29,11 @@ static void backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
   }
   
   connection_start(backend, fd, remote_addr);
+}
+
+static void backend_idle_cb(EV_P_ struct ev_idle *watcher, int revents)
+{
+  rb_thread_schedule();
 }
 
 
@@ -55,7 +63,7 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   backend->local_addr.sin_addr.s_addr = inet_addr(backend->address);
   
   backend->loop = ev_default_loop(0);
-
+  
   if ((backend->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     rb_sys_fail("socket");
 
@@ -73,8 +81,13 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   if (listen(backend->fd, LISTEN_BACKLOG) == -1)
     rb_sys_fail("listen");
   
-  /* initialise io watchers */
+  /* initialise watchers */
   watch(backend, backend_accept_cb, accept, EV_READ);  
+  ev_idle_init(&backend->idle_watcher, backend_idle_cb);
+  
+  /* allows running the server inside a thread, mainly for testing */
+  if (!rb_thread_alone())
+    backend_idle_start(backend);
   
   backend->open = 1;
   
