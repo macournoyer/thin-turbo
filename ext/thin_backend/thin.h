@@ -30,10 +30,11 @@
 #else
 #define LISTEN_BACKLOG     511
 #endif
-#define CONNECTIONS_SIZE   100
+#define CONNECTIONS_SIZE   100              /* initialize size, will grow */
 #define CONNECTION_TIMEOUT 30.0
-#define BUFFER_SLICES      (80 + 32) /* big enough so we can fit MAX_HEADER */
-#define BUFFER_SIZE        1024
+#define BUFFER_SLICES      (80 + 32)        /* big enough so we can fit MAX_HEADER */
+#define BUFFER_SIZE        1024             /* size of one chunk in the buffer pool */
+#define MAX_BUFFER         1024             /* max size before transfered to tempfile */
 #define MAX_HEADER         1024 * (80 + 32)
 
 
