@@ -14,9 +14,9 @@ module ThinTurboServer
   end
   
   module ClassMethods
-    def serve(app)
+    def serve(app=nil, &block)
       before do
-        start_server app
+        start_server(app || block)
       end
       after do
         stop_server
@@ -66,6 +66,56 @@ module ThinTurboServer
   end
 end
 
+class HttpResponse
+  attr_reader :status, :headers, :body
+  
+  def initialize(data)
+    @data = data
+    
+    if matches = data.match(/^HTTP\/\d\.\d (\d{3}) [\w\s]+\r$/)
+      @status = matches[1].to_i
+    end
+    
+    @headers = {}
+    data.scan(/^([^\(|\)\<\>@,;:\\\"\/\[\]\?=\{\}\s\t]+): (.*)\r$/).each do |name, value|
+      @headers[name] = value
+    end
+    
+    @body = data.split("\r\n\r\n")[1..-1].join("\r\n\r\n")
+  end
+  
+  def to_s
+    @data
+  end
+end
+
+module HttpSpecDSL
+  DEFAULT_HEADERS = { 'Connection' => 'close' }
+  
+  def GET(path, headers=DEFAULT_HEADERS, &block)
+    process_request 'GET', path, headers, &block
+  end
+  
+  def POST(path, body, headers=DEFAULT_HEADERS, &block)
+    process_request 'POST', path, headers, body, &block
+  end
+  
+  private
+    def process_request(method, path, headers, body=nil, &block)
+      unless @_defined_description
+        @_defined_description = "#{method} #{path} #{headers.inspect}"
+        @_defined_description << " " + body.to_s.split("\r\n").first if body
+      end
+      
+      h = headers.inject('') { |h, (k,v)| h += "#{k}: #{v}\r\n" }
+      response = HttpResponse.new(request("#{method} #{path} HTTP/1.1\r\n#{h}\r\n#{body}"))
+      
+      response.instance_eval(&block) if block
+      response
+    end
+end
+
 Spec::Runner.configure do |config|
   config.include ThinTurboServer
+  config.include HttpSpecDSL
 end

@@ -5,10 +5,11 @@ THIN_TURBO_VERSION  = '0.1.0'
 
 require 'rake'
 require 'rake/clean'
+require 'spec/rake/spectask'
 
 Dir['tasks/**/*.rake'].each { |rake| load rake }
 
-task :default => :test
+task :default => [:compile, :test, :spec]
 
 ext_task :thin_backend
 
@@ -18,4 +19,9 @@ task :test do
   cd 'test' do
     sh 'make test'
   end
+end
+
+Spec::Rake::SpecTask.new(:spec) do |t|
+  t.spec_opts = %w(-fs -c)
+  t.spec_files = FileList['spec/**/*_spec.rb']
 end
