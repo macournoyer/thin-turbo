@@ -1,6 +1,6 @@
 require File.dirname(__FILE__) + '/spec_helper'
 
-describe Thin, "turbo backend" do
+describe Thin::Backends::Turbo, "server" do
   serve EchoApp.new
   
   it do

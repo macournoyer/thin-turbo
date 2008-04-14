@@ -1,0 +1,17 @@
+require File.dirname(__FILE__) + '/spec_helper'
+
+describe Thin::Backends::Turbo, "parsing" do
+  serve EchoApp.new
+  
+  it "should parse" do
+    GET("/path?query")
+    
+    @app.env['PATH_INFO'].should == '/path'
+    @app.env['REQUEST_PATH'].should == '/path'
+    @app.env['REQUEST_URI'].should == '/path?query'
+    @app.env['HTTP_VERSION'].should == 'HTTP/1.1'
+    @app.env['REQUEST_METHOD'].should == 'GET'
+    @app.env['QUERY_STRING'].should == 'query'
+    @app.env['HTTP_CONNECTION'].should == 'close'
+  end
+end

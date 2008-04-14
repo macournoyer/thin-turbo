@@ -25,8 +25,10 @@ module ThinTurboServer
   end
   
   def start_server(app)
+    @app = app
+    
     Thin::Logging.silent = true
-    @server = Thin::Server.new(ADDRESS, PORT, app, :backend => Thin::Backends::Turbo, :signals => false)
+    @server = Thin::Server.new(ADDRESS, PORT, @app, :backend => Thin::Backends::Turbo, :signals => false)
     
     @thread.kill if @thread
     @thread = Thread.new { @server.start }
@@ -103,7 +105,7 @@ module HttpSpecDSL
   private
     def process_request(method, path, headers, body=nil, &block)
       unless @_defined_description
-        @_defined_description = "#{method} #{path} #{headers.inspect}"
+        @_defined_description = "should #{method} #{path} #{headers.inspect}"
         @_defined_description << " " + body.to_s.split("\r\n").first if body
       end
       
