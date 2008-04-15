@@ -49,7 +49,7 @@ struct connection_s {
   unsigned            open : 1;
   int                 fd;
   struct sockaddr_in  remote_addr;
-    
+  
   /* request */
   buffer_t            read_buffer;
   http_parser         parser;
@@ -91,6 +91,7 @@ struct backend_s {
   struct ev_loop     *loop;
   ev_io               accept_watcher;
   ev_idle             idle_watcher;
+  ev_prepare          prepare_watcher;
 };
 
 #define watch(conn, cb, event, ev_event) \
@@ -118,7 +119,7 @@ VALUE input_new(buffer_t *buf);
 
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
 void connection_parse(connection_t *connection, char *buf, int len);
-void connection_process(connection_t *connection);
+VALUE connection_process(connection_t *connection);
 void connection_close(connection_t *connection);
 
 void connections_init();

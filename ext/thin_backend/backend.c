@@ -2,9 +2,7 @@
 #include <ev.c>
 
 #include "thin.h"
-
-#define backend_idle_start(backend) \
-  if (!ev_is_active(&backend->idle_watcher)) { ev_idle_start(backend->loop, &backend->idle_watcher); }
+#include "node.h"
 
 
 /* event callbacks */
@@ -31,9 +29,34 @@ static void backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
   connection_start(backend, fd, remote_addr);
 }
 
-static void backend_idle_cb(EV_P_ struct ev_idle *watcher, int revents)
+static void backend_idle_cb(EV_P_ struct ev_idle *w, int revents)
 {
+  ev_idle_stop(EV_A, w);
+}
+
+static void backend_prepare_cb(EV_P_ ev_prepare *w, int revents)
+{
+  backend_t *backend = get_ev_data(backend, w, prepare);
+  
+  /* run Ruby scheduler and give active threads a kick in the ass */
   rb_thread_schedule();
+  
+  /* count runnable threads after a trip in the scheduler */
+  /* TODO is this compatible w/ all Ruby version ? */
+  rb_thread_t mainth = (rb_thread_t) RDATA(rb_thread_main())->data;
+  rb_thread_t th     = mainth;
+  size_t      num    = 0;
+  
+  do {
+    th = th->next;
+    if (th->status != THREAD_KILLED)
+      num++;
+  } while (th != mainth);
+  
+  /* if still some runnable threads, poll anyways, but do not block
+   * inspired by http://lists.schmorp.de/pipermail/libev/2008q2/000237.html */
+  if (num > 1 && !ev_is_active(&backend->idle_watcher))
+    ev_idle_start(backend->loop, &backend->idle_watcher);
 }
 
 
@@ -82,12 +105,17 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
     rb_sys_fail("listen");
   
   /* initialise watchers */
-  watch(backend, backend_accept_cb, accept, EV_READ);  
-  ev_idle_init(&backend->idle_watcher, backend_idle_cb);
+  watch(backend, backend_accept_cb, accept, EV_READ);
   
-  /* allows running the server inside a thread, mainly for testing */
-  if (!rb_thread_alone())
-    backend_idle_start(backend);
+  backend->prepare_watcher.data = backend;
+  ev_prepare_init(&backend->prepare_watcher, backend_prepare_cb);
+  ev_set_priority(&backend->prepare_watcher, EV_MINPRI);
+  ev_prepare_start(backend->loop, &backend->prepare_watcher);
+  ev_unref(backend->loop);
+
+  backend->idle_watcher.data = backend;
+  ev_idle_init(&backend->idle_watcher, backend_idle_cb);
+  ev_set_priority(&backend->idle_watcher, EV_MINPRI);
   
   backend->open = 1;
   

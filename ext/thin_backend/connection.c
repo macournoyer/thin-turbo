@@ -35,7 +35,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
     c->write_buffer.current += sent;
   } else {
     connection_errno(c);
-    return;    
+    return;
   }
   
   if (c->write_buffer.current == c->write_buffer.len) {
@@ -167,7 +167,7 @@ void connection_parse(connection_t *c, char *buf, int len)
   /* request fully received */
   if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
     unwatch(c, read);
-    connection_process(c);
+    rb_thread_create(connection_process, (void*) c);
   }
 }
 
@@ -225,7 +225,7 @@ int connection_send_body(connection_t *c, VALUE body)
   }
 }
 
-void connection_process(connection_t *c)
+VALUE connection_process(connection_t *c)
 {
   /* Call the app to process the request */
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
@@ -246,6 +246,8 @@ void connection_process(connection_t *c)
   
     watch(c, connection_writable_cb, write, EV_WRITE);
   }
+  
+  return Qnil;
 }
 
 void connection_close(connection_t *c)
@@ -262,6 +264,8 @@ void connection_close(connection_t *c)
   /* tell Ruby GC vars are not used anymore */
   rb_gc_unregister_address(&c->env);
   rb_gc_unregister_address(&c->input);
+  
+  /* TODO maybe kill the thread also: rb_thread_kill(c->thread) */
   
   c->open = 0;
 }
