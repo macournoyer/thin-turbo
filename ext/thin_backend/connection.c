@@ -131,8 +131,6 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   /* init libev stuff */
   watch(c, connection_readable_cb, read, EV_READ);
   /* timeout watcher, close connection when peer not responding */
-  c->timeout_watcher.data = c;
-  ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
   ev_timer_start(c->loop, &c->timeout_watcher);
 }
 
@@ -285,13 +283,17 @@ void connections_init()
 
 void connections_create(array_t *connections, size_t num)
 {
-  connection_t *connection;
-  int                i;
+  connection_t *c;
+  int           i;
   
   for (i = 0; i <= num; ++i) {
-    connection = array_push(connections);
-    assert(connection);
-    connection->open = 0;
-    parser_callbacks_setup(connection);
+    c = array_push(connections);
+    assert(c);
+    
+    c->open = 0;
+    parser_callbacks_setup(c);
+    
+    c->timeout_watcher.data = c;
+    ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
   }
 }
