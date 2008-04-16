@@ -1,6 +1,10 @@
 #ifndef _THIN_H_
 #define _THIN_H_
 
+#include <ruby.h>
+#include <ev.h>
+
+/* TODO ifdef some of this? */
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
@@ -14,10 +18,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define EV_STANDALONE 1
-#include <ev.h>
+/* includes for internal threading stuff */
+#ifdef RUBY_19
+  /* TODO find an alternative for Ruby 1.9 */
+#else
+# include "node.h"
+#endif
 
-#include "ruby.h"
 #include "ext_help.h"
 #include "array.h"
 #include "buffer.h"
@@ -26,9 +33,9 @@
 #include "status.h"
 
 #ifdef __FreeBSD__
-#define LISTEN_BACKLOG     -1
+#define LISTEN_BACKLOG     -1        /* FreeBSD set to max when negative */
 #else
-#define LISTEN_BACKLOG     511
+#define LISTEN_BACKLOG     511       /* that's what most web server use, ie: Apache & Nginx */
 #endif
 #define CONNECTIONS_SIZE   100
 #define CONNECTION_TIMEOUT 30.0

@@ -1,9 +1,4 @@
-#define EV_STANDALONE 1
-#include <ev.c>
-
 #include "thin.h"
-#include "node.h"
-
 
 /* event callbacks */
 
@@ -42,7 +37,7 @@ static void backend_prepare_cb(EV_P_ ev_prepare *w, int revents)
   rb_thread_schedule();
   
   /* count runnable threads after a trip in the scheduler */
-  /* TODO is this compatible w/ all Ruby version ? */
+  /* FIXME doesn't work in Ruby 1.9 */
   rb_thread_t mainth = (rb_thread_t) RDATA(rb_thread_main())->data;
   rb_thread_t th     = mainth;
   size_t      num    = 0;

@@ -30,7 +30,9 @@ dir = File.dirname(__FILE__)
 libev_dir = File.expand_path(dir + '/../libev')
 
 $CFLAGS << " -I#{libev_dir} " << flags.join(' ')
-$defs << "-DRUBY_VERSION_CODE=#{RUBY_VERSION.gsub(/\D/, '')}"
+
+$defs << "-DRUBY_19" if RUBY_VERSION =~ /^1\.9/
+
 
 dir_config("thin_backend")
 have_library("c", "main")
