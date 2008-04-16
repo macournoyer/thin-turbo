@@ -83,7 +83,7 @@ class HttpResponse
       @headers[name] = value
     end
     
-    @body = data.split("\r\n\r\n")[1..-1].join("\r\n\r\n")
+    @body = data.split("\r\n\r\n")[1..-1].join("\r\n\r\n") if data.include?("\r\n\r\n")
   end
   
   def to_s
@@ -92,7 +92,7 @@ class HttpResponse
 end
 
 module HttpSpecDSL
-  DEFAULT_HEADERS = { 'Connection' => 'close' }
+  DEFAULT_HEADERS = { 'Connection' => 'close', 'Host' => 'localhost' }
   
   def GET(path, headers=DEFAULT_HEADERS, &block)
     process_request 'GET', path, headers, &block

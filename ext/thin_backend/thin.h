@@ -42,6 +42,7 @@
 #define BUFFER_SLICES      (80 + 32) /* big enough so we can fit MAX_HEADER */
 #define BUFFER_SIZE        1024
 #define MAX_HEADER         1024 * (80 + 32)
+#define RACK_VERSION       INT2FIX(3), INT2FIX(0)
 
 
 #define LF     (u_char) 10

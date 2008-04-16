@@ -13,5 +13,9 @@ describe Thin::Backends::Turbo, "parsing" do
     @app.env['REQUEST_METHOD'].should == 'GET'
     @app.env['QUERY_STRING'].should == 'query'
     @app.env['HTTP_CONNECTION'].should == 'close'
+    @app.env['SERVER_PROTOCOL'].should == 'HTTP/1.1'
+    @app.env['GATEWAY_INTERFACE'].should == 'CGI/1.2'
+    @app.env["rack.url_scheme"].should == 'http'
+    @app.env['FRAGMENT'].should be_nil
   end
 end
