@@ -171,33 +171,35 @@ void connection_parse(connection_t *c, char *buf, int len)
 
 void connection_send_status(connection_t *c, const int status)
 {
-  size_t n;
+  buffer_t *buf = &c->write_buffer;
+  char     *status_line = get_status_line(status);
+  #define   RESP_HTTP_VERSION "HTTP/1.1 "
   
-  n = sprintf(c->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
-  c->write_buffer.len = n;
+  buffer_append(buf, RESP_HTTP_VERSION, sizeof(RESP_HTTP_VERSION) - 1);
+  buffer_append(buf, status_line, strlen(status_line));
+  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
 void connection_send_headers(connection_t *c, VALUE headers)
 {
-  VALUE   hash, keys, key, value;
-  size_t  i, n;
+  buffer_t *buf = &c->write_buffer;
+  VALUE     hash, keys, key, value;
+  size_t    i, n = 0;
+  #define   HEADER_SEP ": "
   
   keys = rb_funcall(headers, sInternedKeys, 0);
-  n = 0;
   
   for (i = 0; i < RARRAY_LEN(keys); ++i) {
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
-    /* FIXME possible buffer overflow, replace w/ buffer_append or something */
-    buffer_grow(&c->write_buffer, n);
-    n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len + n,
-                 "%s: %s" CRLF,
-                 RSTRING_PTR(key),
-                 RSTRING_PTR(value));
+
+    buffer_append(buf, RSTRING_PTR(key), RSTRING_LEN(key));
+    buffer_append(buf, HEADER_SEP, sizeof(HEADER_SEP) - 1);
+    buffer_append(buf, RSTRING_PTR(value), RSTRING_LEN(value));
+    buffer_append(buf, CRLF, sizeof(CRLF) - 1);
   }
-  c->write_buffer.len += n;
   
-  buffer_append(&c->write_buffer, CRLF, 2);
+  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
