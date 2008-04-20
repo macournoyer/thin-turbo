@@ -22,6 +22,7 @@ static VALUE global_url_scheme;
 static VALUE global_url_scheme_value;
 static VALUE global_script_name;
 static VALUE global_path_info;
+static VALUE global_remote_addr;
 static VALUE global_rack_version;
 static VALUE global_rack_version_value;
 static VALUE global_rack_error;
@@ -152,10 +153,12 @@ static void header_done(void *data, const char *at, size_t length)
   rb_hash_aset(env, global_server_protocol, global_server_protocol_value);
   rb_hash_aset(env, global_url_scheme, global_url_scheme_value);
   rb_hash_aset(env, global_script_name, global_empty);
+  rb_hash_aset(env, global_remote_addr, rb_str_new2(connection->remote_addr));
   rb_hash_aset(env, global_rack_version, global_rack_version_value);
   rb_hash_aset(env, global_rack_error, rb_stderr);
   rb_hash_aset(env, global_rack_multithread, Qtrue);
   rb_hash_aset(env, global_rack_multiprocess, Qfalse);
+  rb_hash_aset(env, global_rack_run_once, Qfalse);
   rb_hash_aset(env, global_rack_run_once, Qfalse);
 }
 
@@ -203,6 +206,7 @@ void parser_callbacks_init()
   DEF_GLOBAL(url_scheme_value, "http");
   DEF_GLOBAL(script_name, "SCRIPT_NAME");
   DEF_GLOBAL(path_info, "PATH_INFO");
+  DEF_GLOBAL(remote_addr, "REMOTE_ADDR");
   DEF_GLOBAL(rack_version, "rack.version");
   DEF_GLOBAL(rack_error, "rack.errors");
   DEF_GLOBAL(rack_multithread, "rack.multithread");

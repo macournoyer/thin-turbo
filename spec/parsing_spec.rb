@@ -17,5 +17,6 @@ describe Thin::Backends::Turbo, "parsing" do
     @app.env['GATEWAY_INTERFACE'].should == 'CGI/1.2'
     @app.env["rack.url_scheme"].should == 'http'
     @app.env['FRAGMENT'].should be_nil
+    @app.env['REMOTE_ADDR'].should == '127.0.0.1'
   end
 end

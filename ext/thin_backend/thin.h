@@ -56,7 +56,7 @@ struct connection_s {
   /* socket */
   unsigned            open : 1;
   int                 fd;
-  struct sockaddr_in  remote_addr;
+  char               *remote_addr;
   
   /* request */
   buffer_t            read_buffer;

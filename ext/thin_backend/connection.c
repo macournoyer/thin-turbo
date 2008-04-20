@@ -109,7 +109,7 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->backend        = backend;
   c->content_length = 0;
   c->fd             = fd;
-  c->remote_addr    = remote_addr;
+  c->remote_addr    = inet_ntoa(remote_addr.sin_addr);
   
   /* mark as used to Ruby GC */
   c->env = rb_hash_new();
