@@ -4,8 +4,8 @@ class Benchmarker
   PORT          = 7000
   ADDRESS       = '0.0.0.0'
   TMP_POST_FILE = "/tmp/bench-post-file"
-  # SERVERS       = %w(mongrel ebb thin thin-turbo)
-  SERVERS       = %w(ebb thin-turbo)
+  # SERVERS       = %w(mongrel ebb-seq ebb-thread thin thin-turbo)
+  SERVERS       = %w(ebb-seq ebb-thread thin-turbo)
   
   def initialize(method, range, options={})
     @method     = method
