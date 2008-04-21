@@ -70,12 +70,14 @@ VALUE backend_set_app(VALUE self, VALUE app)
 VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
 {
   backend_t *backend = NULL;
+  int        sock_flags = 1;
+
   DATA_GET(self, backend_t, backend);
-  int sock_flags;
   
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
   
+  memset(&backend->local_addr, 0, sizeof(backend->local_addr));
   backend->local_addr.sin_family = AF_INET;
   backend->local_addr.sin_port = htons(backend->port);
   backend->local_addr.sin_addr.s_addr = inet_addr(backend->address);
@@ -89,10 +91,9 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   if (fcntl(backend->fd, F_SETFL, O_NONBLOCK) < 0)
     rb_sys_fail("fcntl");
 
-  sock_flags = 1;
   if (setsockopt(backend->fd, SOL_SOCKET, SO_REUSEADDR, &sock_flags, sizeof(sock_flags)) == -1)
     rb_sys_fail("setsockopt(SO_REUSEADDR)");
-    
+  
   if (bind(backend->fd, (struct sockaddr *)&backend->local_addr, sizeof backend->local_addr) == -1)
     rb_sys_fail("bind");
 
