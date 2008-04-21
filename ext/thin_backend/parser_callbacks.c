@@ -114,11 +114,11 @@ static void http_version(void *data, const char *at, size_t length)
 static void header_done(void *data, const char *at, size_t length)
 {
   connection_t *connection = (connection_t*) data;
-  VALUE              env        = connection->env;
-  VALUE              temp       = Qnil;
-  VALUE              ctype      = Qnil;
-  VALUE              body       = Qnil;
-  char              *colon      = NULL;
+  VALUE         env        = connection->env;
+  VALUE         temp       = Qnil;
+  VALUE         ctype      = Qnil;
+  VALUE         body       = Qnil;
+  char         *colon      = NULL;
 
   rb_hash_aset(env, global_gateway_interface, global_gateway_interface_value);
   if((temp = rb_hash_aref(env, global_http_host)) != Qnil) {
@@ -134,14 +134,13 @@ static void header_done(void *data, const char *at, size_t length)
       rb_hash_aset(env, global_server_port, global_port_80);
     }
   }
+  
+  /* reset the buffer, will store body now */
+  connection->read_buffer.len = 0;
 
   if (length > 0) {
     /* grab the initial body and stuff it into the hash */
-    memcpy(connection->read_buffer.ptr, at, length);
-    connection->read_buffer.len = length;
-  } else {
-    /* reset the buffer even if no body */
-    connection->read_buffer.len = 0;
+    buffer_append(&connection->read_buffer, at, length);
   }
   
   /* according to Rack specs, query string must be empty string if none */

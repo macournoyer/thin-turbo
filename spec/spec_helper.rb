@@ -104,7 +104,7 @@ module HttpSpecDSL
   end
   
   def POST(path, body, headers=DEFAULT_HEADERS, &block)
-    process_request 'POST', path, headers, body, &block
+    process_request 'POST', path, headers.merge('Content-Length' => body.size.to_s), body, &block
   end
   
   private

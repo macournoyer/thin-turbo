@@ -19,4 +19,12 @@ describe Thin::Backends::Turbo, "parsing" do
     @app.env['FRAGMENT'].should be_nil
     @app.env['REMOTE_ADDR'].should == '127.0.0.1'
   end
+  
+  it "should parse big field value" do
+    data = 'X' * (1024 * 80) # max
+    
+    GET("/", 'X-Data' => data)
+    
+    @app.env['HTTP_X_DATA'].size.should == data.size
+  end
 end
