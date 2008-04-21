@@ -30,15 +30,9 @@ module ThinTurboServer
     Thin::Logging.silent = true
     @server = Thin::Server.new(ADDRESS, PORT, @app, :backend => Thin::Backends::Turbo, :signals => false)
     
-    @thread.kill if @thread
     @thread = Thread.new { @server.start }
     
-    Timeout.timeout(3) do
-      loop do
-        return if ping_server
-        Thread.pass
-      end
-    end
+    wait_for { ping_server }
   end
   
   def ping_server
@@ -51,7 +45,18 @@ module ThinTurboServer
   end
   
   def stop_server
-    @server.stop
+    @server.stop!
+    wait_for { !ping_server }
+    @thread.kill
+  end
+  
+  def wait_for(sec=3)
+    Timeout.timeout(sec) do
+      loop do
+        return if yield
+        Thread.pass
+      end
+    end
   end
   
   def request(data)
