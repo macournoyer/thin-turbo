@@ -27,4 +27,10 @@ describe Thin::Backends::Turbo, "parsing" do
     
     @app.env['HTTP_X_DATA'].size.should == data.size
   end
+  
+  it "should handle big field name" do
+    data = 'X' * 256
+    
+    GET("/", data => 'X').status.should == 200
+  end
 end

@@ -20,10 +20,19 @@ describe Thin::Backends::Turbo, "server" do
       body.should == 'hi'
     end
   end
-  
-  # TODO cause segfault
-  xit "should handle big body" do
-    data = 'X' * (1024 ** 2)
+    
+  it "should handle big body (stored in memory)" do
+    data = 'X' * 1024 * (80 + 32)
+    
+    POST("/", data) do
+      status.should == 200
+      headers['Content-Length'].should == data.size.to_s
+      body.should == data
+    end
+  end
+
+  xit "should handle very big body (stored to tempfile)" do
+    data = 'X' * 1024 ** 2
     
     POST("/", data) do
       status.should == 200

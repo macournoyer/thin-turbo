@@ -22,12 +22,12 @@ void buffer_free(buffer_t *buf)
 void buffer_grow(buffer_t *buf, size_t len)
 {
   size_t  new_len = buf->len + len;
-
+  
   if (new_len <= buf->salloc)
     return;
   
   char   *new, *old;
-  size_t  num = (size_t) (new_len + 0.5) / (float) buf->pool->size;
+  size_t  num = new_len / buf->pool->size + 1;
   
   /* TODO store big body in tempfile */
   /* TODO if free space in next blocks, alloc more and don't memcpy */
@@ -41,6 +41,8 @@ void buffer_grow(buffer_t *buf, size_t len)
   buf->ptr    = new;
   buf->nalloc = num;
   buf->salloc = buf->pool->size * num;
+  
+  assert(buf->len + len <= buf->salloc && "Failed to allocate buffer");
   
   pfree(buf->pool, old);
 }
