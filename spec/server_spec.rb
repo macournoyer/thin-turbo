@@ -22,7 +22,7 @@ describe Thin::Backends::Turbo, "server" do
   end
     
   it "should handle big body (stored in memory)" do
-    data = 'X' * 1024 * (80 + 32)
+    data = 'X' * 1024 * (80 + 31)
     
     POST("/", data) do
       status.should == 200

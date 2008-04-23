@@ -57,16 +57,6 @@ static void backend_prepare_cb(EV_P_ ev_prepare *w, int revents)
 
 /* public api */
 
-VALUE backend_set_app(VALUE self, VALUE app)
-{
-  backend_t *backend = NULL;
-  DATA_GET(self, backend_t, backend);
-  
-  backend->app = app;
-  
-  return app;
-}
-
 VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
 {
   backend_t *backend = NULL;
@@ -74,6 +64,7 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
 
   DATA_GET(self, backend_t, backend);
   
+  backend->app = rb_ivar_get(self, rb_intern("@app"));
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
   
@@ -142,6 +133,32 @@ VALUE backend_close(VALUE self)
   return Qtrue;
 }
 
+VALUE backend_set_maxfds(VALUE self, VALUE max)
+{
+  struct rlimit rlim;
+  int imax = NUM2INT(max);
+  
+  getrlimit(RLIMIT_NOFILE, &rlim);
+  
+  rlim.rlim_cur = imax;
+	if (imax > rlim.rlim_max)
+		rlim.rlim_max = imax;
+
+  setrlimit(RLIMIT_NOFILE, &rlim);
+  /* ignore errors, max wont be set */
+
+	return max;
+}
+
+VALUE backend_get_maxfds(VALUE self)
+{
+  struct rlimit rlim;
+  
+  getrlimit(RLIMIT_NOFILE, &rlim);
+
+	return INT2FIX(rlim.rlim_cur);
+}
+
 static void backend_free(backend_t *backend)
 {
   if (backend) {
@@ -173,8 +190,9 @@ void backend_define(void)
   VALUE cBackend = rb_define_class_under(mThin, "Turbo", rb_cObject);
   
   rb_define_alloc_func(cBackend, backend_alloc);
-  rb_define_method(cBackend, "app=", backend_set_app, 1);
   rb_define_protected_method(cBackend, "listen_on_port", backend_listen_on_port, 2);
   rb_define_protected_method(cBackend, "loop!", backend_loop, 0);
   rb_define_protected_method(cBackend, "close", backend_close, 0);
+  rb_define_protected_method(cBackend, "maxfds=", backend_set_maxfds, 1);
+  rb_define_protected_method(cBackend, "maxfds", backend_get_maxfds, 0);
 }
