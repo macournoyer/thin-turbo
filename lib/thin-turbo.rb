@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'fastthread'
 require 'thin'
 
 require File.dirname(__FILE__) + "/../ext/thin_backend/thin_backend"

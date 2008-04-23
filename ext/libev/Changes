@@ -1,4 +1,18 @@
-Revision history for libev, a high-performance and full-featured event loop
+Revision history for libev, a high-performance and full-featured event loop.
+
+3.2  Wed Apr  2 17:11:19 CEST 2008
+	- fix a 64 bit overflow issue in the select backend,
+          by using fd_mask instead of int for the mask.
+        - rename internal sighandler to avoid clash with very old perls.
+        - entering ev_loop will not clear the ONESHOT or NONBLOCKING
+          flags of any outer loops anymore.
+        - add ev_async_pending.
+
+3.1  Thu Mar 13 13:45:22 CET 2008
+	- implement ev_async watchers.
+        - only initialise signal pipe on demand.
+	- make use of sig_atomic_t configurable.
+        - improved documentation.
 
 3.0  Mon Jan 28 13:14:47 CET 2008
 	- API/ABI bump to version 3.0.

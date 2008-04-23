@@ -35,7 +35,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
     c->write_buffer.current += sent;
   } else {
     connection_errno(c);
-    return;    
+    return;
   }
   
   if (c->write_buffer.current == c->write_buffer.len) {
@@ -53,7 +53,13 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (n == -1) {
+    /* error, closing connection */
     connection_errno(c);
+    return;
+  }
+  
+  if (n == 0) {
+    /* received 0 byte, read again next loop */
     return;
   }
   
@@ -103,7 +109,7 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->backend        = backend;
   c->content_length = 0;
   c->fd             = fd;
-  c->remote_addr    = remote_addr;
+  c->remote_addr    = inet_ntoa(remote_addr.sin_addr);
   
   /* mark as used to Ruby GC */
   c->env = rb_hash_new();
@@ -125,8 +131,6 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   /* init libev stuff */
   watch(c, connection_readable_cb, read, EV_READ);
   /* timeout watcher, close connection when peer not responding */
-  c->timeout_watcher.data = c;
-  ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
   ev_timer_start(c->loop, &c->timeout_watcher);
 }
 
@@ -161,39 +165,41 @@ void connection_parse(connection_t *c, char *buf, int len)
   /* request fully received */
   if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
     unwatch(c, read);
-    connection_process(c);
+    rb_thread_create(connection_process, (void*) c);
   }
 }
 
 void connection_send_status(connection_t *c, const int status)
 {
-  size_t n;
+  buffer_t *buf = &c->write_buffer;
+  char     *status_line = get_status_line(status);
+  #define   RESP_HTTP_VERSION "HTTP/1.1 "
   
-  n = sprintf(c->write_buffer.ptr, "HTTP/1.1 %s" CRLF, get_status_line(status));
-  c->write_buffer.len = n;
+  buffer_append(buf, RESP_HTTP_VERSION, sizeof(RESP_HTTP_VERSION) - 1);
+  buffer_append(buf, status_line, strlen(status_line));
+  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
 void connection_send_headers(connection_t *c, VALUE headers)
 {
-  VALUE   hash, keys, key, value;
-  size_t  i, n;
+  buffer_t *buf = &c->write_buffer;
+  VALUE     hash, keys, key, value;
+  size_t    i, n = 0;
+  #define   HEADER_SEP ": "
   
   keys = rb_funcall(headers, sInternedKeys, 0);
-  n = 0;
   
   for (i = 0; i < RARRAY_LEN(keys); ++i) {
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
-    /* FIXME possible buffer overflow, replace w/ buffer_append or something */
-    buffer_grow(&c->write_buffer, n);
-    n += sprintf((char *) c->write_buffer.ptr + c->write_buffer.len + n,
-                 "%s: %s" CRLF,
-                 RSTRING_PTR(key),
-                 RSTRING_PTR(value));
+
+    buffer_append(buf, RSTRING_PTR(key), RSTRING_LEN(key));
+    buffer_append(buf, HEADER_SEP, sizeof(HEADER_SEP) - 1);
+    buffer_append(buf, RSTRING_PTR(value), RSTRING_LEN(value));
+    buffer_append(buf, CRLF, sizeof(CRLF) - 1);
   }
-  c->write_buffer.len += n;
   
-  buffer_append(&c->write_buffer, CRLF, 2);
+  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
@@ -219,7 +225,7 @@ int connection_send_body(connection_t *c, VALUE body)
   }
 }
 
-void connection_process(connection_t *c)
+VALUE connection_process(connection_t *c)
 {
   /* Call the app to process the request */
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
@@ -240,6 +246,8 @@ void connection_process(connection_t *c)
   
     watch(c, connection_writable_cb, write, EV_WRITE);
   }
+  
+  return Qnil;
 }
 
 void connection_close(connection_t *c)
@@ -257,6 +265,8 @@ void connection_close(connection_t *c)
   rb_gc_unregister_address(&c->env);
   rb_gc_unregister_address(&c->input);
   
+  /* TODO maybe kill the thread also: rb_thread_kill(c->thread) */
+  
   c->open = 0;
 }
 
@@ -268,18 +278,24 @@ void connections_init()
   /* Intern some Ruby string */
   sInternedCall = rb_intern("call");
   sInternedKeys = rb_intern("keys");
+  
   sRackInput    = rb_obj_freeze(rb_str_new2("rack.input"));
+  rb_gc_register_address(&sRackInput);
 }
 
 void connections_create(array_t *connections, size_t num)
 {
-  connection_t *connection;
-  int                i;
+  connection_t *c;
+  int           i;
   
   for (i = 0; i <= num; ++i) {
-    connection = array_push(connections);
-    assert(connection);
-    connection->open = 0;
-    parser_callbacks_setup(connection);
+    c = array_push(connections);
+    assert(c);
+    
+    c->open = 0;
+    parser_callbacks_setup(c);
+    
+    c->timeout_watcher.data = c;
+    ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
   }
 }

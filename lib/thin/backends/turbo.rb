@@ -1,6 +1,8 @@
 module Thin
   module Backends
     class Turbo
+      include Logging
+      
       # Server serving the connections throught the backend
       attr_accessor :server
       
@@ -29,7 +31,7 @@ module Thin
       end
       
       def start
-        self.app = @server.app
+        @app = @server.app
         listen_on_port(@host, @port)
 
         @running = true
@@ -43,6 +45,8 @@ module Thin
       alias :stop! :stop
     
       def config
+        self.maxfds = @maximum_connections
+        @maximum_connections = maxfds
       end
     
       def running?
@@ -50,7 +54,7 @@ module Thin
       end
     
       def empty?
-        false # TODO
+        size.zero?
       end
     
       def size
@@ -63,8 +67,8 @@ module Thin
       
       protected
         def log_error(ex=$!)
-          puts "!! Unexpected error while processing request: #{ex.message}"
-          puts ex.backtrace.join("\n") if ex.backtrace
+          log "!! Unexpected error while processing request: #{ex.message}"
+          log ex.backtrace.join("\n") if ex.backtrace
         end
     end
   end

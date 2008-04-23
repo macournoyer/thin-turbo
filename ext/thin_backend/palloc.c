@@ -52,7 +52,7 @@ void * palloc(pool_t *p, size_t num)
   size_t numfree, i = 0;
   
   /* TODO maybe build a custom pool in that case ? */
-  assert(num <= p->num);
+  assert(num <= p->num && "pool too small");
   
   for (;;) {
     /* skip all following used blocks */

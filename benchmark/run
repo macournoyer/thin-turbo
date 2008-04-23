@@ -4,6 +4,7 @@ require 'optparse'
 
 MB = 1024 ** 2
 CONCURRENCY_RANGE = [1, 10, 50]
+WAIT_RANGE        = [1, 2, 3]
 FILE_RANGE        = [1 * MB] #, 5 * MB , 10 * MB]
 
 options = {
@@ -13,7 +14,7 @@ range  = nil
 method = (ARGV[0] || :concurrency).to_sym
 
 OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} (concurrency|upload|download) [options]"
+  opts.banner = "Usage: #{$0} (concurrency|wait|upload|download) [options]"
 
   opts.on("-n NUM", "--requests", "Number of requests")         { |n| options[:requests] = n }
   opts.on("-r EVAL", "--range", "Range used to run benchmark")  { |r| range = eval("[#{r}]") }
@@ -26,6 +27,8 @@ unless range
   case method
   when :concurrency
     range = CONCURRENCY_RANGE
+  when :wait
+    range = WAIT_RANGE
   when :upload, :download
     range = FILE_RANGE
   end

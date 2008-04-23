@@ -1,6 +1,10 @@
 #ifndef _THIN_H_
 #define _THIN_H_
 
+#include <ruby.h>
+#include <ev.h>
+
+/* TODO ifdef some of this? */
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ctype.h>
@@ -10,14 +14,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#define EV_STANDALONE 1
-#include <ev.h>
+/* includes for internal threading stuff */
+#ifdef RUBY_19
+  /* TODO find an alternative for Ruby 1.9 */
+#else
+# include "node.h"
+#endif
 
-#include "ruby.h"
 #include "ext_help.h"
 #include "array.h"
 #include "buffer.h"
@@ -26,9 +34,9 @@
 #include "status.h"
 
 #ifdef __FreeBSD__
-#define LISTEN_BACKLOG     -1
+#define LISTEN_BACKLOG     -1        /* FreeBSD set to max when negative */
 #else
-#define LISTEN_BACKLOG     511
+#define LISTEN_BACKLOG     511       /* that's what most web server use, ie: Apache & Nginx */
 #endif
 #define CONNECTIONS_SIZE   100              /* initialize size, will grow */
 #define CONNECTION_TIMEOUT 30.0
@@ -36,6 +44,7 @@
 #define BUFFER_SIZE        1024             /* size of one chunk in the buffer pool */
 #define MAX_BUFFER         1024             /* max size before transfered to tempfile */
 #define MAX_HEADER         1024 * (80 + 32)
+#define RACK_VERSION       INT2FIX(3), INT2FIX(0)
 
 
 #define LF     (u_char) 10
@@ -49,8 +58,8 @@ struct connection_s {
   /* socket */
   unsigned            open : 1;
   int                 fd;
-  struct sockaddr_in  remote_addr;
-    
+  char               *remote_addr;
+  
   /* request */
   buffer_t            read_buffer;
   http_parser         parser;
@@ -89,8 +98,10 @@ struct backend_s {
   pool_t             *buffer_pool;
   
   /* libev */
-  ev_io               accept_watcher;
   struct ev_loop     *loop;
+  ev_io               accept_watcher;
+  ev_idle             idle_watcher;
+  ev_prepare          prepare_watcher;
 };
 
 #define watch(conn, cb, event, ev_event) \
@@ -118,7 +129,7 @@ VALUE input_new(buffer_t *buf);
 
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
 void connection_parse(connection_t *connection, char *buf, int len);
-void connection_process(connection_t *connection);
+VALUE connection_process(connection_t *connection);
 void connection_close(connection_t *connection);
 
 void connections_init();

@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'rack'
+require 'rack/request'
 
 class App
   MIN_SIZE = 512

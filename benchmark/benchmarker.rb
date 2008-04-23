@@ -4,8 +4,8 @@ class Benchmarker
   PORT          = 7000
   ADDRESS       = '0.0.0.0'
   TMP_POST_FILE = "/tmp/bench-post-file"
-  # SERVERS       = %w(mongrel ebb thin thin-turbo)
-  SERVERS       = %w(ebb thin-turbo)
+  # SERVERS       = %w(mongrel ebb-seq ebb-thread thin thin-turbo)
+  SERVERS       = %w(ebb-seq ebb-thread thin-turbo)
   
   def initialize(method, range, options={})
     @method     = method
@@ -62,13 +62,16 @@ class Benchmarker
     def ab(options={})
       File.open(TMP_POST_FILE, 'w') { |f| f << 'X' * options[:upload].to_i } if options[:upload]
       
+      params = []
+      params << "size=#{options[:download]}" if options[:download]
+      params << "wait=#{options[:wait]}"     if options[:wait]
+      
       cmd  = "nice -n20 ab "
       cmd << "-c #{options[:concurrency]} " if options[:concurrency]
       cmd << "-p #{TMP_POST_FILE} "         if options[:upload]
       cmd << "-k "                          if @keep_alive
       cmd << "-n #{@requests} "
-      cmd << "#{ADDRESS}:#{PORT}/"
-      cmd << "?size=#{options[:download]}"  if options[:download]
+      cmd << "#{ADDRESS}:#{PORT}/?" + params.join("&")
       cmd << " 2> /dev/null"
       
       out = `#{cmd}`

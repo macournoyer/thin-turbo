@@ -1,0 +1,6 @@
+* Store big buffer in tempfile
+* Set timeout from Ruby
+* Make finding free connection O(1)
+* Sending using writev
+* Implement buffer chain
+* Change pool implementation
