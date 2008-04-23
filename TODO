@@ -1,0 +1,7 @@
+* Store big buffer in tempfile
+* Config rlimit for file descriptors
+* Set timeout from Ruby
+* Make finding free connection O(1)
+* Sending using writev
+* Implement buffer chain
+* Change pool implementation
