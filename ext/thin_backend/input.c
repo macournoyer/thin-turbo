@@ -21,10 +21,10 @@ static VALUE input_read(int argc, VALUE *argv, VALUE self)
   VALUE vlen, str;
   int   maxlen, len;
   
-  if (buf->current == buf->len)
+  if (buf->offset == buf->len)
     return Qnil;
   
-  maxlen = buf->len - buf->current;
+  maxlen = buf->len - buf->offset;
 
   if (rb_scan_args(argc, argv, "01", &vlen) == 0) {
     len = maxlen;
@@ -34,8 +34,8 @@ static VALUE input_read(int argc, VALUE *argv, VALUE self)
       len = maxlen;
   }
   
-  str = rb_str_new((char *) buf->ptr + buf->current, len);
-  buf->current += len;
+  str = rb_str_new((char *) buf->ptr + buf->offset, len);
+  buf->offset += len;
   
   return str;
 }

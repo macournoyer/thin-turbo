@@ -26,19 +26,19 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   int           sent;
   
   sent = send(c->fd,
-              (char *) c->write_buffer.ptr + c->write_buffer.current,
-              c->write_buffer.len - c->write_buffer.current,
+              (char *) c->write_buffer.ptr + c->write_buffer.offset,
+              c->write_buffer.len - c->write_buffer.offset,
               0);
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (sent > 0) {
-    c->write_buffer.current += sent;
+    c->write_buffer.offset += sent;
   } else {
     connection_errno(c);
     return;
   }
   
-  if (c->write_buffer.current == c->write_buffer.len) {
+  if (c->write_buffer.offset == c->write_buffer.len) {
     watcher->cb = connection_closable_cb;
   }
 }
@@ -257,8 +257,8 @@ void connection_close(connection_t *c)
 
   close(c->fd);
   
-  buffer_free(&c->read_buffer);
-  buffer_free(&c->write_buffer);
+  buffer_reset(&c->read_buffer);
+  buffer_reset(&c->write_buffer);
   
   /* tell Ruby GC vars are not used anymore */
   rb_gc_unregister_address(&c->env);
