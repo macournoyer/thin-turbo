@@ -105,7 +105,6 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   /* init connection */
   c->open           = 1;
   c->loop           = backend->loop;
-  c->buffer_pool    = backend->buffer_pool;
   c->backend        = backend;
   c->content_length = 0;
   c->fd             = fd;
@@ -115,9 +114,9 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->env = rb_hash_new();
   rb_gc_register_address(&c->env);
   
-  /* alloc read buffer from pool */
-  buffer_init(&c->read_buffer, c->buffer_pool);
-  buffer_init(&c->write_buffer, c->buffer_pool);
+  /* reset buffers */
+  buffer_reset(&c->read_buffer);
+  buffer_reset(&c->write_buffer);
   
   /* assign env[rack.input] */
   c->input = input_new(&c->read_buffer);
@@ -294,6 +293,9 @@ void connections_create(array_t *connections, size_t num)
     
     c->open = 0;
     parser_callbacks_setup(c);
+    
+    buffer_init(&c->read_buffer);
+    buffer_init(&c->write_buffer);
     
     c->timeout_watcher.data = c;
     ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);

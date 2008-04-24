@@ -19,7 +19,7 @@ void buffer_reset(buffer_t *buf)
     c = c->next;
   }
   
-  if (BUFFER_IN_FILE(buf)) {
+  if (buffer_in_file(buf)) {
     close(buf->file.fd);
     unlink(buf->file.name);
     free(buf->file.name);
@@ -36,7 +36,7 @@ static void buffer_append_mem(buffer_t *buf, chunk_t *chunk)
 
 static int buffer_open_tmpfile(buffer_t *buf)
 {
-  assert(!BUFFER_IN_FILE(buf) && "buffer file already opened");
+  assert(!buffer_in_file(buf) && "buffer file already opened");
   
   buf->file.name = strdup(BUFFER_TMPFILE_TEMPLATE);
   buf->file.fd   = mkstemp(buf->file.name);
@@ -56,7 +56,7 @@ static int buffer_append_tmpfile(buffer_t *buf, chunk_t *chunk)
   chunk_t *c = chunk;
   int      n, written;
 
-  assert(BUFFER_IN_FILE(buf) && "tried to appened to closed buffer file");  
+  assert(buffer_in_file(buf) && "tried to appened to closed buffer file");  
   
   while (c != NULL) {
     for(written = 0; written < c->len; written += n) {
@@ -85,7 +85,7 @@ int buffer_append_chunk(buffer_t *buf, chunk_t *chunk)
     c = c->next;
   }
 	
-	if (BUFFER_IN_FILE(buf)) {
+	if (buffer_in_file(buf)) {
     /* if file open, write to it */
 	  if (buffer_append_tmpfile(buf, chunk) < 0)
       return -1;
@@ -109,9 +109,11 @@ int buffer_append(buffer_t *buf, char *ptr, size_t len)
 {
   chunk_t *c = NULL;
   
+  /* TODO */
   assert(len <= BUFFER_CHUNK_SIZE && "TODO");
   
-  if (!BUFFER_IN_FILE(buf) && buf->last->len + len < BUFFER_CHUNK_SIZE)
+  /* select which chunk to copy to */
+  if (!buffer_in_file(buf) && buf->last->len + len < BUFFER_CHUNK_SIZE)
     c = buf->last;
   else
     c = buffer_chunk_create();
@@ -127,7 +129,7 @@ int buffer_append(buffer_t *buf, char *ptr, size_t len)
 
 /* chunks */
 
-static int chunk_pool_ptr;
+static pool_t * chunk_pool_ptr;
 static pool_t * chunk_pool(void)
 {
   if (!chunk_pool_ptr)
@@ -138,7 +140,7 @@ static pool_t * chunk_pool(void)
 
 chunk_t * buffer_chunk_create(void)
 {
-  /* TODO remove last arg */
+  /* TODO change pool to free list type, last arg always 1 */
   chunk_t *c = palloc(chunk_pool(), 1);
   
   c->ptr  = NULL;

@@ -163,7 +163,6 @@ static void backend_free(backend_t *backend)
 {
   if (backend) {
     array_destroy(backend->connections);
-    pool_destroy(backend->buffer_pool);
     free(backend);
   }
 }
@@ -175,8 +174,6 @@ VALUE backend_alloc(VALUE klass)
   
   backend->connections = array_create(CONNECTIONS_SIZE, sizeof(connection_t));
   connections_create(backend->connections, CONNECTIONS_SIZE);
-  
-  backend->buffer_pool = pool_create(BUFFER_SLICES, BUFFER_SIZE);
   
   backend->obj = obj;
   

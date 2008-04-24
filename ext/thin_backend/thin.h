@@ -72,7 +72,6 @@ struct connection_s {
   
   /* backend */
   backend_t          *backend;
-  pool_t             *buffer_pool;
   
   /* libev */
   struct ev_loop     *loop;
@@ -95,7 +94,6 @@ struct backend_s {
   
   /* pools */
   array_t            *connections;
-  pool_t             *buffer_pool;
   
   /* libev */
   struct ev_loop     *loop;

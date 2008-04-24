@@ -32,7 +32,7 @@ struct chunk_s {
   chunk_t *next;
 };
 
-#define BUFFER_IN_FILE(buf) (buf->file.fd != -1)
+#define buffer_in_file(buf) (buf->file.fd != -1)
 
 void buffer_init(buffer_t *buf);
 void buffer_reset(buffer_t *buf);
