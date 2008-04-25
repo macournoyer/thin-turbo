@@ -42,6 +42,7 @@
 #define CONNECTION_TIMEOUT 30.0
 #define BUFFER_SLICES      (80 + 32) /* big enough so we can fit MAX_HEADER */
 #define BUFFER_SIZE        1024
+#define STREAM_SIZE        1024      /* when buffer reach this, it's sent right away */
 #define MAX_HEADER         1024 * (80 + 32)
 #define RACK_VERSION       INT2FIX(3), INT2FIX(0)
 
@@ -68,6 +69,7 @@ struct connection_s {
   
   /* response */
   buffer_t            write_buffer;
+  unsigned            finished : 1;
   
   /* backend */
   backend_t          *backend;

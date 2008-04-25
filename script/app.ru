@@ -3,13 +3,15 @@ class App
     <html>
     <h1>Hi there!</h1>
     <p>Type something ...</p>
-    <form action="?" method="post">
-      <input type="text" name="name" value="value" />
+    <form action="/" method="post">
+      <textarea name="name">Type somethng ...</textarea><br/>
       <input type="submit" />
       <a href="/">Cancel</a>
     </form>
     </html>
   EOS
+  
+  SIZE = BODY.size
 
   def call(env)
     sleep 10 if env['PATH_INFO'] == '/slow'
@@ -19,7 +21,7 @@ class App
       200,
       {
         'Content-Type' => 'text/html',
-        'Content-Length' => BODY.size.to_s
+        'Content-Length' => SIZE.to_s
       },
       BODY
     ]
