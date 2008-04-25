@@ -11,19 +11,17 @@ static VALUE sRackInput;
 #define connection_errno(c) \
   connection_error(c, strerror(errno))
 
-/* event callbacks */
+#define connection_sent(c) (c->write_buffer.current == c->write_buffer.len)
 
-static void connection_closable_cb(EV_P_ struct ev_io *watcher, int revents)
-{
-  connection_t *c = get_ev_data(connection, watcher, write);
-  
-  connection_close(c);
-}
+/* event callbacks */
 
 static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   connection_t *c = get_ev_data(connection, watcher, write);
   int           sent;
+  
+  if (c->write_buffer.len == 0)
+    return;
   
   sent = send(c->fd,
               (char *) c->write_buffer.ptr + c->write_buffer.offset,
@@ -31,15 +29,23 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
               0);
   ev_timer_again(c->loop, &c->timeout_watcher);
   
-  if (sent > 0) {
-    c->write_buffer.offset += sent;
-  } else {
+  if (sent >= 0) {
+    c->write_buffer.current += sent;
+    
+  } else { /* sent < 0 => error */
     connection_errno(c);
     return;
+    
   }
   
-  if (c->write_buffer.offset == c->write_buffer.len) {
-    watcher->cb = connection_closable_cb;
+  if (connection_sent(c)) {
+    /* if all the buffer is written we can clear it from memory */
+    buffer_free(&c->write_buffer);
+    buffer_init(&c->write_buffer, c->buffer_pool);
+    
+    /* we can stream the request, so do do close it unless it's marked */
+    if (c->finished)
+      connection_close(c);
   }
 }
 
@@ -104,6 +110,7 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   
   /* init connection */
   c->open           = 1;
+  c->finished       = 0;
   c->loop           = backend->loop;
   c->backend        = backend;
   c->content_length = 0;
@@ -205,7 +212,14 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
   connection_t *c = (connection_t *) val_conn;
   
+  /* TODO if buffer full, raise an error of do a blocking loop call */
   buffer_append(&c->write_buffer, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
+  
+  if (c->write_buffer.len - c->write_buffer.current >= STREAM_SIZE) {
+    /* stream by going for a shot in the even loop to drain the buffer if possisble,
+       this way, the chunk is sent if the socket is writable. */
+    ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
+  }
   
   return Qnil;
 }
@@ -233,17 +247,24 @@ VALUE connection_process(connection_t *c)
     /* log any error */
     rb_funcall(c->backend->obj, rb_intern("log_error"), 0);
     connection_close(c);
+    
   } else {
     /* store response info and prepare for writing */
     int   status  = FIX2INT(rb_ary_entry(response, 0));
     VALUE headers = rb_ary_entry(response, 1);
     VALUE body    = rb_ary_entry(response, 2);
     
+    watch(c, connection_writable_cb, write, EV_WRITE);
+    
     connection_send_status(c, status);
     connection_send_headers(c, headers);
     connection_send_body(c, body);
-  
-    watch(c, connection_writable_cb, write, EV_WRITE);
+    
+    c->finished = 1;
+    
+    if (connection_sent(c))
+      connection_close(c);
+    
   }
   
   return Qnil;

@@ -15,19 +15,25 @@ module ThinTurboServer
   
   module ClassMethods
     def serve(app=nil, &block)
+      Thin::Logging.silent = true
       before do
         start_server(app || block)
       end
       after do
         stop_server
       end
-    end    
+    end
+    
+    def debug!
+      Thin::Logging.silent = false
+      Thin::Logging.debug  = true
+      Thin::Logging.trace  = true
+    end
   end
   
   def start_server(app)
     @app = app
     
-    Thin::Logging.silent = true
     @server = Thin::Server.new(ADDRESS, PORT, @app, :backend => Thin::Backends::Turbo, :signals => false)
     
     @thread = Thread.new { @server.start }
