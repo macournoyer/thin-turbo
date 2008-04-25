@@ -1,7 +1,5 @@
 #include "buffer.h"
 
-#define trace(msg) fprintf(stderr, "[%s:%s:%d] %s\n", __FILE__, __FUNCTION__, __LINE__, msg)
-
 static pool_t * buffer_pool_ptr;
 static pool_t * buffer_pool(void)
 {
@@ -40,8 +38,6 @@ static int buffer_open_tmpfile(buffer_t *buf)
 {
   assert(!buffer_in_file(buf) && "buffer file already opened");
   
-  trace("opening file");
-  
   buf->file.name = strdup(BUFFER_TMPFILE_TEMPLATE);
   buf->file.fd   = mkstemp(buf->file.name);
 
@@ -57,14 +53,12 @@ static int buffer_open_tmpfile(buffer_t *buf)
 
 static int buffer_append_to_file(buffer_t *buf, const char *ptr, size_t len)
 {
-  int n, written;
-  
-  trace("appening to file");
+  int n = 0, written = 0;
 
   assert(buffer_in_file(buf) && "tried to append to a closed buffer file");  
   
   for (written = 0; written < len; written += n) {
-    n = write(buf->file.fd, buf->ptr + written, len - written);
+    n = write(buf->file.fd, ptr + written, len - written);
     
     if (n < 0)
       return -1;
@@ -130,8 +124,6 @@ static void buffer_adjust_len(buffer_t *buf, size_t len)
 
 int buffer_append(buffer_t *buf, const char *ptr, size_t len)
 {
-  printf("append: len=%d, total=%d\n", len, buf->len);
-  
   if (buffer_in_file(buf))
     return buffer_append_to_file(buf, ptr, len);
   

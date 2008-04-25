@@ -11,7 +11,7 @@ static VALUE sRackInput;
 #define connection_errno(c) \
   connection_error(c, strerror(errno))
 
-#define connection_sent(c) (c->write_buffer.current == c->write_buffer.len)
+#define connection_sent(c) (c->write_buffer.offset == c->write_buffer.len)
 
 /* event callbacks */
 
@@ -30,7 +30,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (sent >= 0) {
-    c->write_buffer.current += sent;
+    c->write_buffer.offset += sent;
     
   } else { /* sent < 0 => error */
     connection_errno(c);
@@ -40,8 +40,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   if (connection_sent(c)) {
     /* if all the buffer is written we can clear it from memory */
-    buffer_free(&c->write_buffer);
-    buffer_init(&c->write_buffer, c->buffer_pool);
+    buffer_reset(&c->write_buffer);
     
     /* we can stream the request, so do do close it unless it's marked */
     if (c->finished)
@@ -78,7 +77,6 @@ static void connection_timeout_cb(EV_P_ struct ev_timer *watcher, int revents)
     
   connection_close(c);
 }
-
 
 
 /* public api */
@@ -125,19 +123,34 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   buffer_reset(&c->read_buffer);
   buffer_reset(&c->write_buffer);
   
-  /* assign env[rack.input] */
-  c->input = input_new(&c->read_buffer);
-  rb_gc_register_address(&c->input);
-  rb_hash_aset(c->env, sRackInput, c->input);
-  
   /* reinit parser */
   http_parser_init(&c->parser);
   c->parser.data = c;
   
   /* init libev stuff */
+  c->timeout_watcher.data = c;
   watch(c, connection_readable_cb, read, EV_READ);
   /* timeout watcher, close connection when peer not responding */
   ev_timer_start(c->loop, &c->timeout_watcher);
+}
+
+static VALUE buffer_to_ruby_obj(buffer_t *buf)
+{
+  /* TODO move values to static */
+  
+  if (buffer_in_file(buf)) {
+    /* close the fd and reopen in a Ruby File object */
+    close(buf->file.fd);
+    VALUE fname = rb_str_new2(buf->file.name);
+    return rb_class_new_instance(1, &fname, rb_cFile);
+    
+  } else {
+    /* no ref to StringIO, redefine to get ref */
+    /* TODO if read_buffer empty use a generic empty StringIO ? */
+    VALUE cStringIO = rb_define_class("StringIO", rb_cData);
+    return rb_funcall(cStringIO, rb_intern("new"), 1, rb_str_new(buf->ptr, buf->len));
+    
+  }
 }
 
 void connection_parse(connection_t *c, char *buf, int len)
@@ -147,7 +160,10 @@ void connection_parse(connection_t *c, char *buf, int len)
     return;
   }
   
-  buffer_append(&c->read_buffer, buf, len);
+  if (buffer_append(&c->read_buffer, buf, len) < 0) {
+    connection_error(c, "Error writing to buffer");
+    return;
+  }
   
   if (!http_parser_is_finished(&c->parser)) {
     /* header not all received, we continue parsing ... */
@@ -171,6 +187,11 @@ void connection_parse(connection_t *c, char *buf, int len)
   /* request fully received */
   if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
     unwatch(c, read);
+    
+    /* assign env[rack.input] */
+    rb_hash_aset(c->env, sRackInput, buffer_to_ruby_obj(&c->read_buffer));
+    
+    /* call the Rack app in a Ruby green thread */
     rb_thread_create(connection_process, (void*) c);
   }
 }
@@ -215,7 +236,7 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
   /* TODO if buffer full, raise an error of do a blocking loop call */
   buffer_append(&c->write_buffer, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
   
-  if (c->write_buffer.len - c->write_buffer.current >= STREAM_SIZE) {
+  if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
     /* stream by going for a shot in the even loop to drain the buffer if possisble,
        this way, the chunk is sent if the socket is writable. */
     ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
@@ -253,6 +274,10 @@ VALUE connection_process(connection_t *c)
     int   status  = FIX2INT(rb_ary_entry(response, 0));
     VALUE headers = rb_ary_entry(response, 1);
     VALUE body    = rb_ary_entry(response, 2);
+    
+    /* read buffer no longer needed, free up now so we
+     * can reuse some of it for write buffer */
+    buffer_reset(&c->read_buffer);
     
     watch(c, connection_writable_cb, write, EV_WRITE);
     
@@ -318,7 +343,6 @@ void connections_create(array_t *connections, size_t num)
     buffer_init(&c->read_buffer);
     buffer_init(&c->write_buffer);
     
-    c->timeout_watcher.data = c;
     ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
   }
 }

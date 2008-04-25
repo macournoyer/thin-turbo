@@ -31,7 +31,7 @@ describe Thin::Backends::Turbo, "server" do
     end
   end
 
-  xit "should handle very big body (stored to tempfile)" do
+  it "should handle very big body (stored to tempfile)" do
     data = 'X' * 1024 ** 2
     
     POST("/", data) do
