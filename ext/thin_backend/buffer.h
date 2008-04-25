@@ -3,9 +3,16 @@
 
 #include "palloc.h"
 
-#define BUFFER_POOL_SIZE        100
+/* Number of chunk in the buffer pool */
+#define BUFFER_POOL_SIZE        (80 + 32 + 1)
+
+/* Size of one chunk in the buffer pool */
 #define BUFFER_CHUNK_SIZE       1024
-#define BUFFER_MAX_LEN          1024 * (80) /* TODO */
+
+/* Size at which the buffer is moved to a file.
+   it must be greater then MAX_HEADER defined in thin.h */
+#define BUFFER_MAX_LEN          (BUFFER_POOL_SIZE * BUFFER_CHUNK_SIZE)
+
 #define BUFFER_TMPFILE_TEMPLATE "/tmp/.thin-buffer.XXXXXX"
 
 typedef struct buffer_s buffer_t;
@@ -26,6 +33,7 @@ struct buffer_s {
 };
 
 #define buffer_in_file(buf) (buf->file.fd != -1)
+#define buffer_eof(buf) (buf->offset == buf->len)
 
 void buffer_init(buffer_t *buf);
 void buffer_reset(buffer_t *buf);

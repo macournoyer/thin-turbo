@@ -38,12 +38,17 @@
 #else
 #define LISTEN_BACKLOG     511       /* that's what most web server use, ie: Apache & Nginx */
 #endif
-#define CONNECTIONS_SIZE   100              /* initialize size, will grow */
+
+/* initialize size, will grow */
+#define CONNECTIONS_SIZE   100
+
+/* number of seconds before we give up reading/writing to a socket and close the connection
+ * TODO make this configurable */
 #define CONNECTION_TIMEOUT 30.0
-#define BUFFER_SLICES      (80 + 32)        /* big enough so we can fit MAX_HEADER */
-#define BUFFER_SIZE        1024             /* size of one chunk in the buffer pool */
-#define MAX_BUFFER         1024             /* max size before transfered to tempfile */
-#define STREAM_SIZE        1024      /* when buffer reach this, it's sent right away */
+
+/* when buffer reach this, it's sent right away */
+#define STREAM_SIZE        1024
+
 #define MAX_HEADER         1024 * (80 + 32)
 #define RACK_VERSION       INT2FIX(3), INT2FIX(0)
 
@@ -104,6 +109,7 @@ struct backend_s {
   ev_prepare          prepare_watcher;
 };
 
+/* libev helpers */
 #define watch(conn, cb, event, ev_event) \
   ev_io_init(&conn->event##_watcher, cb, conn->fd, ev_event); \
   conn->event##_watcher.data = conn; \
@@ -116,25 +122,27 @@ struct backend_s {
   (type##_t *) w->data; \
   assert(&((type##_t *)w->data)->event##_watcher == w);
 
+/* log helpers */
 #define log_error(b, msg) \
   rb_funcall(b->obj, rb_intern("log_error"), 1, \
              rb_exc_new(rb_eRuntimeError, msg, strlen(msg)))
 
 #define log_errno(b) log_error(b, strerror(errno))
 
+/* backend */
 void backend_define(void);
 
-void input_define(void);
-VALUE input_new(buffer_t *buf);
-
+/* connection */
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
 void connection_parse(connection_t *connection, char *buf, int len);
 VALUE connection_process(connection_t *connection);
 void connection_close(connection_t *connection);
 
+/* connections */
 void connections_init();
 void connections_create(array_t *connections, size_t num);
 
+/* parser */
 void parser_callbacks_init();
 void parser_callbacks_setup(connection_t *connection);
 

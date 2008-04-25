@@ -52,9 +52,9 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   connection_t *c = get_ev_data(connection, watcher, read);
   size_t        n;
-  char          buf[BUFFER_SIZE];
+  char          buf[BUFFER_CHUNK_SIZE];
   
-  n = recv(c->fd, buf, BUFFER_SIZE, 0);
+  n = recv(c->fd, buf, BUFFER_CHUNK_SIZE, 0);
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (n == -1) {
