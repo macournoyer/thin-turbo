@@ -5,7 +5,7 @@
 
 #define BUFFER_POOL_SIZE        100
 #define BUFFER_CHUNK_SIZE       1024
-#define BUFFER_MAX_LEN          1024 * (80 + 32) /* TODO */
+#define BUFFER_MAX_LEN          1024 * (80) /* TODO */
 #define BUFFER_TMPFILE_TEMPLATE "/tmp/.thin-buffer.XXXXXX"
 
 typedef struct buffer_s buffer_t;
