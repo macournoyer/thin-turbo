@@ -54,7 +54,7 @@ static int buffer_open_tmpfile(buffer_t *buf)
 static int buffer_append_to_file(buffer_t *buf, const char *ptr, size_t len)
 {
   int n = 0, written = 0;
-
+  
   assert(buffer_in_file(buf) && "tried to append to a closed buffer file");  
   
   for (written = 0; written < len; written += n) {

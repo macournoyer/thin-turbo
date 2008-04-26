@@ -233,7 +233,7 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
   connection_t *c = (connection_t *) val_conn;
   
-  /* TODO if buffer full, raise an error of do a blocking loop call */
+  /* TODO if buffer full, raise an error or do a blocking loop call */
   buffer_append(&c->write_buffer, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
   
   if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
@@ -247,7 +247,7 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 
 int connection_send_body(connection_t *c, VALUE body)
 {
-  if (TYPE(body) == T_STRING) {
+  if (TYPE(body) == T_STRING && RSTRING_LEN(body) < BUFFER_MAX_LEN) {
     /* Calling String#each creates several other strings which is slower and use more mem,
      * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */    
     buffer_append(&c->write_buffer, RSTRING_PTR(body), RSTRING_LEN(body));
@@ -266,7 +266,7 @@ VALUE connection_process(connection_t *c)
 
   if (response == Qundef) {
     /* log any error */
-    rb_funcall(c->backend->obj, rb_intern("log_error"), 0);
+    rb_funcall(c->backend->obj, rb_intern("log_last_exception"), 0);
     connection_close(c);
     
   } else {

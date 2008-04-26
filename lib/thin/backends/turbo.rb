@@ -66,9 +66,14 @@ module Thin
       end
       
       protected
-        def log_error(ex=$!)
-          log "!! Unexpected error while processing request: #{ex.message}"
-          log ex.backtrace.join("\n") if ex.backtrace
+        def log_last_exception
+          log "!! Unexpected error while processing request: #{$!}"
+          log $!.backtrace.join("\n")
+        end
+      
+        def log_error(msg, file=nil, function=nil, line=nil)
+          log "!! Unexpected error while processing request: #{msg}"
+          log "   in " + [file, function, line].compact.join(", ")
         end
     end
   end

@@ -67,8 +67,10 @@ module ThinTurboServer
   
   def request(data)
     socket = TCPSocket.new(ADDRESS, PORT)
-    socket.write(data)
-    socket.flush
+    Array(data).each do |chunk|
+      socket.write(chunk)
+      socket.flush
+    end
     out = nil
     Timeout.timeout(3) do
       out = socket.read
@@ -110,7 +112,8 @@ module HttpSpecDSL
   end
   
   def POST(path, body, headers=DEFAULT_HEADERS, &block)
-    process_request 'POST', path, headers.merge('Content-Length' => body.size.to_s), body, &block
+    size = Array(body).join.size
+    process_request 'POST', path, headers.merge('Content-Length' => size.to_s), body, &block
   end
   
   private

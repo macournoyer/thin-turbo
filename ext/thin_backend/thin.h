@@ -124,8 +124,9 @@ struct backend_s {
 
 /* log helpers */
 #define log_error(b, msg) \
-  rb_funcall(b->obj, rb_intern("log_error"), 1, \
-             rb_exc_new(rb_eRuntimeError, msg, strlen(msg)))
+  rb_funcall(b->obj, rb_intern("log_error"), 4, \
+             rb_str_new2(msg), rb_str_new2(__FILE__), \
+             rb_str_new2(__FUNCTION__), INT2FIX(__LINE__))
 
 #define log_errno(b) log_error(b, strerror(errno))
 
