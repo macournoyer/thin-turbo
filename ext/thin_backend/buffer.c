@@ -1,13 +1,6 @@
 #include "buffer.h"
 
-static pool_t * buffer_pool_ptr;
-static pool_t * buffer_pool(void)
-{
-  if (!buffer_pool_ptr)
-    buffer_pool_ptr = pool_create(BUFFER_POOL_SIZE, BUFFER_CHUNK_SIZE);
-  
-  return buffer_pool_ptr;
-}
+pool_declare(buffer, BUFFER_POOL_SIZE, BUFFER_CHUNK_SIZE)
 
 void buffer_init(buffer_t *buf)
 {

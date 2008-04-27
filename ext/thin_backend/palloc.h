@@ -23,6 +23,15 @@ struct pool_s {
   pool_t *next;
 };
 
+#define pool_declare(name, num, size) \
+  static pool_t * name##_pool_ptr; \
+  static pool_t * name##_pool(void) \
+  { \
+    if (!name##_pool_ptr) \
+      name##_pool_ptr = pool_create(num, size); \
+    return name##_pool_ptr; \
+  }
+
 /* Create a pool of +num+ slices each of specified +size+ */
 pool_t * pool_create(size_t num, size_t size);
 
