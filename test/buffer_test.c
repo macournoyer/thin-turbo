@@ -5,24 +5,19 @@ test_init();
 
 void test_buffer_init(void)
 {
-  pool_t   *p = pool_create(10, 512);
   buffer_t  b;
   
-  buffer_init(&b, p);
+  buffer_init(&b);
   
-  assert_equal(p, b.pool);
   assert_equal(1, b.nalloc);
-  assert_equal(512, b.salloc);
-  
-  pool_destroy(p);
+  assert_equal(BUFFER_CHUNK_SIZE, b.salloc);
 }
 
 void test_buffer_append(void)
 {
-  pool_t   *p = pool_create(10, 1024);
   buffer_t  b;
   
-  buffer_init(&b, p);
+  buffer_init(&b);
   
   buffer_append(&b, "hi", 2);
   assert_str_equal("hi", b.ptr);
@@ -31,16 +26,13 @@ void test_buffer_append(void)
   assert_str_equal("hi you", b.ptr);
   assert_equal(6, b.len);
   assert_equal(1, b.nalloc);
-  
-  pool_destroy(p);
 }
 
 void test_buffer_grow_and_append(void)
 {
-  pool_t   *p = pool_create(10, 2);
   buffer_t  b;
   
-  buffer_init(&b, p);
+  buffer_init(&b);
   
   buffer_append(&b, "hi", 2);
   assert_equal(1, b.nalloc);
@@ -57,19 +49,14 @@ void test_buffer_grow_and_append(void)
   assert_equal(8, b.salloc);
 
   assert_str_equal("hi you ! ", b.ptr);
-  
-  pool_destroy(p);
 }
 
-void test_buffer_free(void)
+void test_buffer_reset(void)
 {
-  pool_t   *p = pool_create(10, 2);
-  buffer_t  b;
+  buffer_t b;
   
-  buffer_init(&b, p);
-  buffer_free(&b);
-  
-  pool_destroy(p);
+  buffer_init(&b);
+  buffer_reset(&b);
 }
 
 int main(int argc, char const *argv[])
@@ -79,7 +66,7 @@ int main(int argc, char const *argv[])
   test_buffer_init();
   test_buffer_append();
   test_buffer_grow_and_append();
-  test_buffer_free();
+  test_buffer_reset();
   
   test_end();
 }

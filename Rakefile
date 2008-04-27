@@ -16,10 +16,13 @@ ext_task :thin_backend
 ragel_task 'ext/thin_backend', 'parser.rl', 'parser.c'
 
 task :test do
-  cd 'test' do
-    sh 'make test'
-  end
+  cd('test') { sh 'make test' }
 end
+
+task 'test:clean' do
+  cd('test') { sh 'make clean' }
+end
+task :clean => 'test:clean'
 
 Spec::Rake::SpecTask.new(:spec) do |t|
   t.spec_opts = %w(-fs -c)

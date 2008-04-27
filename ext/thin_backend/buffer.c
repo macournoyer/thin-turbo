@@ -6,7 +6,7 @@ void buffer_init(buffer_t *buf)
 {
   buf->ptr         = palloc(buffer_pool(), 1);
   buf->nalloc      = 1;
-  buf->salloc      = 0;
+  buf->salloc      = BUFFER_CHUNK_SIZE;
   buf->len         = 0;
   buf->offset      = 0;
   buf->file.fd     = -1;
