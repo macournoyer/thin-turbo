@@ -36,19 +36,18 @@ void test_buffer_grow_and_append(void)
   
   buffer_append(&b, "hi", 2);
   assert_equal(1, b.nalloc);
-  assert_equal(2, b.salloc);
-  
-  buffer_append(&b, " you", 4);
-  assert_equal(6, b.len);
+  assert_equal(BUFFER_CHUNK_SIZE, b.salloc);
+
+  buffer_append(&b, " you", BUFFER_CHUNK_SIZE * 2);
+  assert_equal(BUFFER_CHUNK_SIZE * 2 + 2, b.len);
   assert_equal(3, b.nalloc);
-  assert_equal(6, b.salloc);
+  assert_equal(BUFFER_CHUNK_SIZE * 3, b.salloc);
 
-  buffer_append(&b, " ! ", 3); /* odd num */
-  assert_equal(9, b.len);
+  buffer_append(&b, " ! ", BUFFER_CHUNK_SIZE / 2 * 3); /* odd num */
+  assert_equal(BUFFER_CHUNK_SIZE * 2 + 2 + (BUFFER_CHUNK_SIZE / 2 * 3), b.len);
   assert_equal(4, b.nalloc);
-  assert_equal(8, b.salloc);
 
-  assert_str_equal("hi you ! ", b.ptr);
+  assert_equal(BUFFER_CHUNK_SIZE * 4, b.salloc);  
 }
 
 void test_buffer_reset(void)
