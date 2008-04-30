@@ -1,1 +1,2 @@
 * Set timeout from Ruby
+* Allow duplicate values for some headers, eg.: cookies
