@@ -1,4 +1,1 @@
 * Set timeout from Ruby
-* Make finding free connection O(1)
-* Sending using writev
-* Implement queue of Ruby strings for write buffer

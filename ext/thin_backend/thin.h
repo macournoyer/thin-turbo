@@ -27,10 +27,10 @@
 #endif
 
 #include "ext_help.h"
-#include "array.h"
 #include "buffer.h"
 #include "palloc.h"
 #include "parser.h"
+#include "queue.h"
 #include "status.h"
 
 #ifdef __FreeBSD__
@@ -63,7 +63,6 @@ typedef struct connection_s connection_t;
 
 struct connection_s {
   /* socket */
-  unsigned            open : 1;
   int                 fd;
   char               *remote_addr;
   
@@ -92,16 +91,16 @@ struct backend_s {
   /* socket */
   char               *address;
   unsigned            port;
-  unsigned            open : 1;
   int                 fd;
+  unsigned            open;
   struct sockaddr_in  local_addr;
   
   /* ruby */
   VALUE               obj; /* Ruby Backend object */
   VALUE               app; /* Rack app */
   
-  /* pools */
-  array_t            *connections;
+  /* connections */
+  queue_t             connections;
   
   /* libev */
   struct ev_loop     *loop;
@@ -142,7 +141,8 @@ void connection_close(connection_t *connection);
 
 /* connections */
 void connections_init();
-void connections_create(array_t *connections, size_t num);
+void connections_push(backend_t *backend);
+void connections_free(backend_t *backend);
 
 /* parser */
 void parser_callbacks_init();

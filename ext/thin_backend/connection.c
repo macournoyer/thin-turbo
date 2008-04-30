@@ -81,31 +81,17 @@ static void connection_timeout_cb(EV_P_ struct ev_timer *watcher, int revents)
 
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr)
 {
-  connection_t *c  = NULL;
-  connection_t *cs = backend->connections->items;
-  int           i  = 0;
-  
-  /* select the first closed connection */
-  for (i = 0; i < backend->connections->nitems; i++) {
-    if (!cs[i].open) {
-      c = &cs[i];
-      break;
-    }
-  }
+  connection_t *c = (connection_t *) queue_pop(&backend->connections);
   
   /* no free connection found, add more */
   if (c == NULL) {
-    connections_create(backend->connections, CONNECTIONS_SIZE);
-    cs = backend->connections->items;
-    /* FIXME: bug here on high concurrency, causes segfault in libev code */
-    c = &cs[++i];
+    connections_push(backend);
+    c = (connection_t *) queue_pop(&backend->connections);
   }
   
   assert(c != NULL);
-  assert(!c->open);
   
   /* init connection */
-  c->open           = 1;
   c->finished       = 0;
   c->loop           = backend->loop;
   c->backend        = backend;
@@ -335,7 +321,8 @@ void connection_close(connection_t *c)
   
   /* TODO maybe kill the thread also: rb_thread_kill(c->thread) */
   
-  c->open = 0;
+  /* put back in the queue of unused connections */
+  queue_push(&c->backend->connections, c);
 }
 
 
@@ -351,21 +338,32 @@ void connections_init()
   rb_gc_register_address(&sRackInput);
 }
 
-void connections_create(array_t *connections, size_t num)
+void connections_push(backend_t *backend)
 {
+  size_t        i;
   connection_t *c;
-  int           i;
   
-  for (i = 0; i <= num; ++i) {
-    c = array_push(connections);
+  for (i = 0; i < CONNECTIONS_SIZE; ++i) {
+    c = (connection_t *) malloc(sizeof(connection_t));
     assert(c);
     
-    c->open = 0;
     parser_callbacks_setup(c);
     
     buffer_init(&c->read_buffer);
     buffer_init(&c->write_buffer);
     
     ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
+    
+    queue_push(&backend->connections, c);
+  }
+}
+
+void connections_free(backend_t *backend)
+{
+  connection_t *c = queue_pop(&backend->connections);
+  
+  while (c != NULL) {
+    free(c);
+    c = queue_pop(&backend->connections);
   }
 }

@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -fno-common -g -O2 -pipe -I../ext/thin_backend -DDEBUG
 
-OBJS = $(addprefix ../ext/thin_backend/,palloc.o array.o buffer.o queue.o)
-TARGETS = $(addsuffix _test,palloc array status buffer queue)
+OBJS = $(addprefix ../ext/thin_backend/,palloc.o buffer.o queue.o)
+TARGETS = $(addsuffix _test,palloc status buffer queue)
 
 %: %.c
 	$(CC) $(CFLAGS) -c $<

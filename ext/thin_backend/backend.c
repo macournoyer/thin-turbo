@@ -134,7 +134,7 @@ VALUE backend_close(VALUE self)
   if (backend->open) {
     backend->open = 0;
     ev_io_stop(backend->loop, &backend->accept_watcher);
-    close(backend->fd);    
+    close(backend->fd);
   }
   
   return Qtrue;
@@ -169,7 +169,7 @@ VALUE backend_get_maxfds(VALUE self)
 static void backend_free(backend_t *backend)
 {
   if (backend) {
-    array_destroy(backend->connections);
+    connections_free(backend);    
     free(backend);
   }
 }
@@ -179,8 +179,7 @@ VALUE backend_alloc(VALUE klass)
   backend_t *backend = ALLOC_N(backend_t, 1);
   VALUE obj = Data_Wrap_Struct(klass, NULL, backend_free, backend);
   
-  backend->connections = array_create(CONNECTIONS_SIZE, sizeof(connection_t));
-  connections_create(backend->connections, CONNECTIONS_SIZE);
+  connections_push(backend);
   
   backend->obj = obj;
   
