@@ -21,7 +21,7 @@ describe Thin::Backends::Turbo, "server" do
     end
   end
     
-  it "POST in chunks" do
+  it "should POST in chunks" do
     POST("/", %w(oh hi there !)) do
       status.should == 200
       headers['Content-Type'].should == 'text/html'
@@ -32,10 +32,12 @@ describe Thin::Backends::Turbo, "server" do
     
   it "should handle big body (stored in memory)" do
     data = ['X' * 1024] * (80 + 31)
+    expected_size = data.join.size
     
     POST("/", data) do
       status.should == 200
-      headers['Content-Length'].should == (1024 * (80 + 31)).to_s
+      headers['Content-Length'].should == expected_size.to_s
+      body.size.should == expected_size
       body.should == data.join
     end
     
@@ -44,12 +46,14 @@ describe Thin::Backends::Turbo, "server" do
   
   # FIXME fail cause response body is stored in a tmpfile (body is a String...)
   # maybe connection.write_buffer needs to be changed to a chain of Ruby strings
-  xit "should handle very big body (stored to tempfile)" do
-    data = ['X' * 1024] * (80 + 33)
+  it "should handle very big body (stored to tempfile)" do
+    data = ['X' * 1024] * 1024
+    expected_size = data.join.size
     
     POST("/", data) do
       status.should == 200
-      headers['Content-Length'].should == (1024 ** 2).to_s
+      headers['Content-Length'].should == expected_size.to_s
+      body.size.should == expected_size
       body.should == data.join
     end
     

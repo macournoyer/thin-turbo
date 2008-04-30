@@ -229,18 +229,41 @@ void connection_send_headers(connection_t *c, VALUE headers)
   buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
+static void connection_send_chunk(connection_t *c, const char *ptr, size_t len)
+{
+  /* chunk too big, split it in smaller chunks and send each separately */
+  if (len >= BUFFER_MAX_LEN) {
+    size_t i, size = BUFFER_MAX_LEN - 1, slices = len / size + 1;
+    
+    for (i = 0; i < slices; ++i) {
+      if (i == slices - 1)
+        size = len % size;
+      
+      connection_send_chunk(c, (char *) ptr + i * size, size);
+    }
+    
+    return;
+  }
+  
+  /* if appending will overflow the buffer we wait till more is sent */
+  while (c->write_buffer.len + len > BUFFER_MAX_LEN)
+    ev_loop(c->loop, EVLOOP_ONESHOT);
+  
+  buffer_append(&c->write_buffer, ptr, len);
+  
+  /* If we have a good sized chunk of data to send, try to send it right away.
+   * This allows streaming by going for a shot in the even loop to drain the buffer if possisble,
+      this way, the chunk is sent if the socket is writable.*/
+  if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
+    ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
+  }
+}
+
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
   connection_t *c = (connection_t *) val_conn;
   
-  /* TODO if buffer full, raise an error or do a blocking loop call */
-  buffer_append(&c->write_buffer, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
-  
-  if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
-    /* stream by going for a shot in the even loop to drain the buffer if possisble,
-       this way, the chunk is sent if the socket is writable. */
-    ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
-  }
+  connection_send_chunk(c, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
   
   return Qnil;
 }
@@ -250,7 +273,7 @@ int connection_send_body(connection_t *c, VALUE body)
   if (TYPE(body) == T_STRING && RSTRING_LEN(body) < BUFFER_MAX_LEN) {
     /* Calling String#each creates several other strings which is slower and use more mem,
      * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */    
-    buffer_append(&c->write_buffer, RSTRING_PTR(body), RSTRING_LEN(body));
+    connection_send_chunk(c, RSTRING_PTR(body), RSTRING_LEN(body));
     
   } else {
     /* Iterate over body#each and send each yielded chunk */
