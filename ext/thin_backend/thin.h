@@ -19,13 +19,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-/* includes for internal threading stuff */
-#ifdef RUBY_19
-  /* TODO find an alternative for Ruby 1.9 */
-#else
-# include "node.h"
-#endif
-
 #include "ext_help.h"
 #include "buffer.h"
 #include "palloc.h"
@@ -101,6 +94,7 @@ struct backend_s {
   
   /* connections */
   queue_t             connections;
+  size_t              thread_count;
   
   /* libev */
   struct ev_loop     *loop;

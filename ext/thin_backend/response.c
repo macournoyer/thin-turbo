@@ -91,7 +91,9 @@ static void response_send_body(connection_t *c, VALUE body)
 VALUE response_process(connection_t *c)
 {
   /* Call the app to process the request */
+  c->backend->thread_count++;
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
+  c->backend->thread_count--;
 
   if (response == Qundef) {
     /* log any error */

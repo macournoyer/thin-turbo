@@ -29,36 +29,20 @@ static void backend_idle_cb(EV_P_ struct ev_idle *w, int revents)
   ev_idle_stop(EV_A, w);
 }
 
-/* count runnable threads after a trip in the scheduler
- * FIXME doesn't work in Ruby 1.9 */
-static size_t backend_running_threads(backend_t *b)
-{
-  rb_thread_t mainth = (rb_thread_t) RDATA(rb_thread_main())->data;
-  rb_thread_t th     = mainth;
-  size_t      num    = 0;
-  
-  do {
-    th = th->next;
-    if (th->status != THREAD_KILLED)
-      num++;
-  } while (th != mainth);
-
-  return num;
-}
-
 static void backend_prepare_cb(EV_P_ ev_prepare *w, int revents)
 {
   backend_t *backend = get_ev_data(backend, w, prepare);
   
-  if (backend_running_threads(backend) > 1) {
-    /* run Ruby scheduler and give active threads a kick in the ass */
-    rb_thread_schedule();
+  if (backend->thread_count == 0)
+    return;
+  
+  /* run Ruby scheduler and give active threads a kick in the ass */
+  rb_thread_schedule();
 
-    /* if still some runnable threads, poll anyways, but do not block
-     * inspired by http://lists.schmorp.de/pipermail/libev/2008q2/000237.html */
-    if (backend_running_threads(backend) > 1 && !ev_is_active(&backend->idle_watcher))
-      ev_idle_start(backend->loop, &backend->idle_watcher);
-  }
+  /* if still some runnable threads, poll anyways, but do not block
+   * inspired by http://lists.schmorp.de/pipermail/libev/2008q2/000237.html */
+  if (backend->thread_count > 0 && !ev_is_active(&backend->idle_watcher))
+    ev_idle_start(backend->loop, &backend->idle_watcher);
 }
 
 
@@ -81,6 +65,12 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   backend->local_addr.sin_addr.s_addr = inet_addr(backend->address);
   
   backend->loop = ev_default_loop(0);
+  backend->thread_count = 0;
+  
+  /* If running in a thread or if there are other threads we have to run
+   * the scheduler on each loop call. */
+  if (!rb_thread_alone())
+    backend->thread_count++;
   
   if ((backend->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     rb_sys_fail("socket");
