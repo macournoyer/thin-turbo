@@ -44,8 +44,6 @@ describe Thin::Backends::Turbo, "server" do
     @app.env['rack.input'].class.should == StringIO
   end
   
-  # FIXME fail cause response body is stored in a tmpfile (body is a String...)
-  # maybe connection.write_buffer needs to be changed to a chain of Ruby strings
   it "should handle very big body (stored to tempfile)" do
     data = ['X' * 1024] * 1024
     expected_size = data.join.size
