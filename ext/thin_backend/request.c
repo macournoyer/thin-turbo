@@ -19,7 +19,7 @@ static VALUE buffer_to_ruby_obj(buffer_t *buf)
   }
 }
 
-void connection_parse(connection_t *c, char *buf, int len)
+void request_parse(connection_t *c, char *buf, int len)
 {
   if (!http_parser_is_finished(&c->parser) && c->read_buffer.len + len > MAX_HEADER) {
     connection_error(c, "Header too big");
@@ -58,6 +58,6 @@ void connection_parse(connection_t *c, char *buf, int len)
     rb_hash_aset(c->env, sRackInput, buffer_to_ruby_obj(&c->read_buffer));
     
     /* call the Rack app in a Ruby green thread */
-    rb_thread_create(connection_process, (void*) c);
+    rb_thread_create(response_process, (void*) c);
   }
 }

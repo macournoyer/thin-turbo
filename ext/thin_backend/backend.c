@@ -179,8 +179,7 @@ VALUE backend_alloc(VALUE klass)
   backend_t *backend = ALLOC_N(backend_t, 1);
   VALUE obj = Data_Wrap_Struct(klass, NULL, backend_free, backend);
   
-  queue_init(&backend->connections);
-  connections_push(backend);
+  connections_init(backend);
   
   backend->obj = obj;
   

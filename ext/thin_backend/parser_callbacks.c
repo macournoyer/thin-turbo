@@ -181,7 +181,7 @@ static void content_type(void *data, const char *at, size_t length)
   rb_hash_aset(req, global_content_type, val);
 }
 
-void parser_callbacks_init()
+void parser_callbacks_define()
 {
   DEF_GLOBAL(empty, "");
   DEF_GLOBAL(http_prefix, "HTTP_");

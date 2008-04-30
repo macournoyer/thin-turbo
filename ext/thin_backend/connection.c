@@ -61,7 +61,7 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
     return;
   }
   
-  connection_parse(c, buf, n);
+  request_parse(c, buf, n);
 }
 
 static void connection_timeout_cb(EV_P_ struct ev_timer *watcher, int revents)
@@ -148,8 +148,10 @@ void connection_close(connection_t *c)
 
 /* connections */
 
-void connections_init()
+void connections_init(backend_t *backend)
 {
+  queue_init(&backend->connections);
+  connections_push(backend);
 }
 
 void connections_push(backend_t *backend)

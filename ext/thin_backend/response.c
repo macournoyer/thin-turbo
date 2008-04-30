@@ -1,6 +1,6 @@
 #include "thin.h"
 
-static void connection_send_status(connection_t *c, const int status)
+static void response_send_status(connection_t *c, const int status)
 {
   buffer_t *buf = &c->write_buffer;
   char     *status_line = get_status_line(status);
@@ -11,7 +11,7 @@ static void connection_send_status(connection_t *c, const int status)
   buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
-static void connection_send_headers(connection_t *c, VALUE headers)
+static void response_send_headers(connection_t *c, VALUE headers)
 {
   buffer_t *buf = &c->write_buffer;
   VALUE     hash, keys, key, value;
@@ -35,7 +35,7 @@ static void connection_send_headers(connection_t *c, VALUE headers)
   buffer_append(buf, CRLF, sizeof(CRLF) - 1);
 }
 
-static void connection_send_chunk(connection_t *c, const char *ptr, size_t len)
+static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
 {
   /* chunk too big, split it in smaller chunks and send each separately */
   if (len >= BUFFER_MAX_LEN) {
@@ -45,7 +45,7 @@ static void connection_send_chunk(connection_t *c, const char *ptr, size_t len)
       if (i == slices - 1)
         size = len % size;
       
-      connection_send_chunk(c, (char *) ptr + i * size, size);
+      response_send_chunk(c, (char *) ptr + i * size, size);
     }
     
     return;
@@ -69,17 +69,17 @@ static VALUE iter_body(VALUE chunk, VALUE *val_conn)
 {
   connection_t *c = (connection_t *) val_conn;
   
-  connection_send_chunk(c, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
+  response_send_chunk(c, RSTRING_PTR(chunk), RSTRING_LEN(chunk));
   
   return Qnil;
 }
 
-static void connection_send_body(connection_t *c, VALUE body)
+static void response_send_body(connection_t *c, VALUE body)
 {
   if (TYPE(body) == T_STRING && RSTRING_LEN(body) < BUFFER_MAX_LEN) {
     /* Calling String#each creates several other strings which is slower and use more mem,
      * also Ruby 1.9 doesn't define that method anymore, so it's better to send one big string. */    
-    connection_send_chunk(c, RSTRING_PTR(body), RSTRING_LEN(body));
+    response_send_chunk(c, RSTRING_PTR(body), RSTRING_LEN(body));
     
   } else {
     /* Iterate over body#each and send each yielded chunk */
@@ -88,7 +88,7 @@ static void connection_send_body(connection_t *c, VALUE body)
   }
 }
 
-VALUE connection_process(connection_t *c)
+VALUE response_process(connection_t *c)
 {
   /* Call the app to process the request */
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
@@ -110,9 +110,9 @@ VALUE connection_process(connection_t *c)
     
     connection_watch_writable(c);
     
-    connection_send_status(c, status);
-    connection_send_headers(c, headers);
-    connection_send_body(c, body);
+    response_send_status(c, status);
+    response_send_headers(c, headers);
+    response_send_body(c, body);
     
     c->finished = 1;
     

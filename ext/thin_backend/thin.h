@@ -143,16 +143,16 @@ void connection_error(connection_t *c, const char *msg);
 void connection_errno(connection_t *c);
 void connection_close(connection_t *connection);
 
-void connection_parse(connection_t *connection, char *buf, int len);
-VALUE connection_process(connection_t *connection);
+void request_parse(connection_t *connection, char *buf, int len);
+VALUE response_process(connection_t *connection);
 
 /* connections */
-void connections_init();
+void connections_init(backend_t *backend);
 void connections_push(backend_t *backend);
 void connections_free(backend_t *backend);
 
 /* parser */
-void parser_callbacks_init();
+void parser_callbacks_define();
 void parser_callbacks_setup(connection_t *connection);
 
 #endif /* _THIN_H_ */
