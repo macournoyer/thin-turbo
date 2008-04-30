@@ -130,14 +130,21 @@ struct backend_s {
 
 #define log_errno(b) log_error(b, strerror(errno))
 
+extern VALUE sInternedCall;
+extern VALUE sInternedKeys;
+extern VALUE sRackInput;
+
 /* backend */
 void backend_define(void);
 
 /* connection */
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
+void connection_error(connection_t *c, const char *msg);
+void connection_errno(connection_t *c);
+void connection_close(connection_t *connection);
+
 void connection_parse(connection_t *connection, char *buf, int len);
 VALUE connection_process(connection_t *connection);
-void connection_close(connection_t *connection);
 
 /* connections */
 void connections_init();

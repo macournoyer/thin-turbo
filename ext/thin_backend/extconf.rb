@@ -33,6 +33,7 @@ $CFLAGS << " -I#{libev_dir} " << flags.join(' ')
 
 $defs << "-DRUBY_19" if RUBY_VERSION =~ /^1\.9/
 
+$defs << "-DDEBUG" if ENV["DEBUG"]
 
 dir_config("thin_backend")
 have_library("c", "main")

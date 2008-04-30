@@ -1,2 +1,3 @@
 * Set timeout from Ruby
 * Allow duplicate values for some headers, eg.: cookies
+* Split connection.c in response.c, request.c and connections_queue.c

@@ -69,11 +69,15 @@ module Thin
         def log_last_exception
           log "!! Unexpected error while processing request: #{$!}"
           log $!.backtrace.join("\n")
+        rescue Object
+          puts "!! [FAILSAFE] Error while logging: #{$!}"
         end
       
         def log_error(msg, file=nil, function=nil, line=nil)
           log "!! Unexpected error while processing request: #{msg}"
           log "   in " + [file, function, line].compact.join(", ")
+        rescue Object
+          puts "!! [FAILSAFE] Error while logging: #{$!}"
         end
     end
   end
