@@ -2,3 +2,4 @@
 * Make finding free connection O(1)
 * Sending using writev
 * Implement queue of Ruby strings for write buffer
+* Allow duplicate values for some headers, eg.: cookies
