@@ -99,7 +99,8 @@ static void buffer_adjust_len(buffer_t *buf, size_t len)
   char   *new, *old;
   size_t  num = new_len / pool->size + 1;
   
-  /* TODO if free space in next blocks, alloc more and don't memcpy */
+  /* TODO if free space in next blocks, alloc more and don't memcpy,
+   * need to implement a prealloc for this. */
   old = buf->ptr;
   new = (char *) palloc(pool, num);
   assert(new);

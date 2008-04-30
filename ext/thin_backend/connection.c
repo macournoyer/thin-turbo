@@ -11,8 +11,6 @@ static VALUE sRackInput;
 #define connection_errno(c) \
   connection_error(c, strerror(errno))
 
-#define connection_sent(c) (c->write_buffer.offset == c->write_buffer.len)
-
 /* event callbacks */
 
 static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
@@ -38,7 +36,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
     
   }
   
-  if (connection_sent(c)) {
+  if (buffer_eof(&c->write_buffer)) {
     /* if all the buffer is written we can clear it from memory */
     buffer_reset(&c->write_buffer);
     
@@ -216,6 +214,8 @@ void connection_send_headers(connection_t *c, VALUE headers)
   
   keys = rb_funcall(headers, sInternedKeys, 0);
   
+  /* FIXME very big response header w/ cause buffer to be stored in tmpfile */
+  
   for (i = 0; i < RARRAY_LEN(keys); ++i) {
     key = RARRAY_PTR(keys)[i];
     value = rb_hash_aref(headers, key);
@@ -310,7 +310,7 @@ VALUE connection_process(connection_t *c)
     
     c->finished = 1;
     
-    if (connection_sent(c))
+    if (buffer_eof(&c->write_buffer))
       connection_close(c);
     
   }

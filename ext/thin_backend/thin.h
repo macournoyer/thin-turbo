@@ -39,14 +39,15 @@
 #define LISTEN_BACKLOG     511       /* that's what most web server use, ie: Apache & Nginx */
 #endif
 
-/* initialize size, will grow */
+/* initialize number of connections in the pool, will grow */
 #define CONNECTIONS_SIZE   100
 
 /* number of seconds before we give up reading/writing to a socket and close the connection
  * TODO make this configurable */
 #define CONNECTION_TIMEOUT 30.0
 
-/* when buffer reach this, it's sent right away */
+/* when write buffer reach this size, it is sent right away, it controls the speed
+ * at which a response is streamed. */
 #define STREAM_SIZE        1024
 
 #define MAX_HEADER         1024 * (80 + 32)

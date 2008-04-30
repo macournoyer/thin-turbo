@@ -12,7 +12,8 @@
 /* Number of chunk in the buffer pool */
 #define BUFFER_POOL_SIZE        (80 + 32 + 1)
 
-/* Size of one chunk in the buffer pool */
+/* Size of one chunk in the buffer pool,
+ * ideally the size of a TCP packet */
 #define BUFFER_CHUNK_SIZE       1024
 
 /* Size at which the buffer is moved to a file.
@@ -29,17 +30,17 @@ struct buffer_s {
   off_t    offset;
   char    *ptr;
   
-  size_t   nalloc;
-  size_t   salloc;
+  size_t   nalloc; /* number of slices allocated in pool */
+  size_t   salloc; /* number of bytes allocated */
   
   struct {
-    int    fd;
+    int    fd;     /* -1 if in mem */
     char  *name;
   } file;
 };
 
-#define buffer_in_file(buf) (buf->file.fd != -1)
-#define buffer_eof(buf) (buf->offset == buf->len)
+#define buffer_in_file(buf) ((buf)->file.fd != -1)
+#define buffer_eof(buf)     ((buf)->offset == (buf)->len)
 
 void buffer_init(buffer_t *buf);
 void buffer_reset(buffer_t *buf);
