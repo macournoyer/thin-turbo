@@ -1,40 +1,5 @@
 #include "thin.h"
 
-static void response_send_status(connection_t *c, const int status)
-{
-  buffer_t *buf = &c->write_buffer;
-  char     *status_line = get_status_line(status);
-  #define   RESP_HTTP_VERSION "HTTP/1.1 "
-  
-  buffer_append(buf, RESP_HTTP_VERSION, sizeof(RESP_HTTP_VERSION) - 1);
-  buffer_append(buf, status_line, strlen(status_line));
-  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
-}
-
-static void response_send_headers(connection_t *c, VALUE headers)
-{
-  buffer_t *buf = &c->write_buffer;
-  VALUE     hash, keys, key, value;
-  size_t    i, n = 0;
-  #define   HEADER_SEP ": "
-  
-  keys = rb_funcall(headers, sInternedKeys, 0);
-  
-  /* FIXME very big response header will cause buffer to be stored in tmpfile */
-  
-  for (i = 0; i < RARRAY_LEN(keys); ++i) {
-    key = RARRAY_PTR(keys)[i];
-    value = rb_hash_aref(headers, key);
-
-    buffer_append(buf, RSTRING_PTR(key), RSTRING_LEN(key));
-    buffer_append(buf, HEADER_SEP, sizeof(HEADER_SEP) - 1);
-    buffer_append(buf, RSTRING_PTR(value), RSTRING_LEN(value));
-    buffer_append(buf, CRLF, sizeof(CRLF) - 1);
-  }
-  
-  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
-}
-
 static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
 {
   /* chunk too big, split it in smaller chunks and send each separately */
@@ -63,6 +28,54 @@ static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
   if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
     ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
   }
+}
+
+static void response_send_status(connection_t *c, const int status)
+{
+  buffer_t *buf = &c->write_buffer;
+  char     *status_line = get_status_line(status);
+  
+  buffer_append(buf, RESP_HTTP_VERSION, sizeof(RESP_HTTP_VERSION) - 1);
+  buffer_append(buf, status_line, strlen(status_line));
+  buffer_append(buf, CRLF, sizeof(CRLF) - 1);
+}
+
+static VALUE iter_header(VALUE value, VALUE *args)
+{
+  connection_t *c   = (connection_t *) args[0];
+  VALUE         key = (VALUE) args[1];
+  
+  response_send_chunk(c, RSTRING_PTR(key), RSTRING_LEN(key));
+  response_send_chunk(c, HEADER_SEP, sizeof(HEADER_SEP) - 1);
+  
+  /* if value ends w/ line break w/ chomp it! */
+  size_t len = RSTRING_LEN(value);
+  if (RSTRING_PTR(value)[RSTRING_LEN(value) - 1] == '\n')
+    len--;
+  
+  response_send_chunk(c, RSTRING_PTR(value), len);  
+  response_send_chunk(c, CRLF, sizeof(CRLF) - 1);
+  
+  return Qnil;
+}
+
+static void response_send_headers(connection_t *c, VALUE headers)
+{
+  VALUE     hash, keys, key, value;
+  size_t    i;
+  
+  keys = rb_funcall(headers, sInternedKeys, 0);
+  
+  for (i = 0; i < RARRAY_LEN(keys); ++i) {
+    key   = RARRAY_PTR(keys)[i];
+    value = rb_hash_aref(headers, key);
+    
+    VALUE args[2] = { (VALUE) c, key };
+    
+    rb_iterate(rb_each, value, iter_header, (VALUE) args);
+  }
+  
+  response_send_chunk(c, CRLF, sizeof(CRLF) - 1);
 }
 
 static VALUE iter_body(VALUE chunk, VALUE *val_conn)

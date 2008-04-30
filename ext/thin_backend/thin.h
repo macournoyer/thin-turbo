@@ -47,9 +47,9 @@
 #define RACK_VERSION       INT2FIX(3), INT2FIX(0)
 
 
-#define LF     (u_char) 10
-#define CR     (u_char) 13
-#define CRLF   "\x0d\x0a"
+#define HEADER_SEP        ": "
+#define RESP_HTTP_VERSION "HTTP/1.1 "
+#define CRLF              "\x0d\x0a"
 
 typedef struct backend_s backend_t;
 typedef struct connection_s connection_t;

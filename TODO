@@ -1,3 +1,2 @@
 * Set timeout from Ruby
-* Allow duplicate values for some headers, eg.: cookies
 * BUG: hangs on file upload 1 time out of 2

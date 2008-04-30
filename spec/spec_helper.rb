@@ -66,6 +66,7 @@ module ThinTurboServer
   end
   
   def request(data)
+    puts data if Thin::Logging.trace?
     socket = TCPSocket.new(ADDRESS, PORT)
     Array(data).each do |chunk|
       socket.write(chunk)
@@ -77,6 +78,7 @@ module ThinTurboServer
     end
   ensure
     socket.close
+    puts out if Thin::Logging.trace?
     out
   end
 end
@@ -93,7 +95,12 @@ class HttpResponse
     
     @headers = {}
     data.scan(/^([^\(|\)\<\>@,;:\\\"\/\[\]\?=\{\}\s\t]+): (.*)\r$/).each do |name, value|
-      @headers[name] = value
+      if @headers.has_key?(name)
+        @headers[name] = [@headers[name]].flatten
+        @headers[name] << value
+      else
+        @headers[name] = value
+      end
     end
     
     @body = data.split("\r\n\r\n")[1..-1].join("\r\n\r\n") if data.include?("\r\n\r\n")
