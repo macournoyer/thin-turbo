@@ -52,7 +52,7 @@ void request_parse(connection_t *c, char *buf, int len)
   
   /* request fully received */
   if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
-    unwatch(c, read);
+    ev_io_stop(c->loop, &c->read_watcher);
     
     /* assign env[rack.input] */
     rb_hash_aset(c->env, sRackInput, buffer_to_ruby_obj(&c->read_buffer));

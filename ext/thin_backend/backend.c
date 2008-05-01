@@ -89,7 +89,8 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
     rb_sys_fail("listen");
   
   /* initialise watchers */
-  watch(backend, backend_accept_cb, accept, EV_READ);
+  backend->accept_watcher.data = backend;
+  ev_io_init(&backend->accept_watcher, backend_accept_cb, backend->fd, EV_READ);
   
   backend->prepare_watcher.data = backend;
   ev_prepare_init(&backend->prepare_watcher, backend_prepare_cb);
@@ -102,6 +103,8 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   ev_set_priority(&backend->idle_watcher, EV_MINPRI);
   
   backend->open = 1;
+  
+  ev_io_start(backend->loop, &backend->accept_watcher);
   
   return Qtrue;
 }

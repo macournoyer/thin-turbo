@@ -104,14 +104,6 @@ struct backend_s {
 };
 
 /* libev helpers */
-#define watch(conn, cb, event, ev_event) \
-  ev_io_init(&conn->event##_watcher, cb, conn->fd, ev_event); \
-  conn->event##_watcher.data = conn; \
-  ev_io_start(conn->loop, &conn->event##_watcher);
-
-#define unwatch(conn, event) \
-  ev_io_stop(conn->backend->loop, &conn->event##_watcher);
-
 #define get_ev_data(type, w, event) \
   (type##_t *) w->data; \
   assert(&((type##_t *)w->data)->event##_watcher == w);

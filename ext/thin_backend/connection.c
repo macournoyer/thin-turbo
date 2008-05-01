@@ -38,7 +38,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 
 void connection_watch_writable(connection_t *c)
 {
-  watch(c, connection_writable_cb, write, EV_WRITE);
+  ev_io_start(c->loop, &c->write_watcher);
 }
 
 static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
@@ -107,10 +107,15 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->parser.data = c;
   
   /* init libev stuff */
+  c->read_watcher.data    = c;
+  c->write_watcher.data   = c;
   c->timeout_watcher.data = c;
-  watch(c, connection_readable_cb, read, EV_READ);
-  /* timeout watcher, close connection when peer not responding */
+  ev_io_init(&c->read_watcher, connection_readable_cb, c->fd, EV_READ);
+  ev_io_init(&c->write_watcher, connection_writable_cb, c->fd, EV_WRITE);
+  
+  /* start event watchers */
   ev_timer_start(c->loop, &c->timeout_watcher);
+  ev_io_start(c->loop, &c->read_watcher);
 }
 
 void connection_error(connection_t *c, const char *msg)
@@ -126,8 +131,8 @@ void connection_errno(connection_t *c)
 
 void connection_close(connection_t *c)
 {
-  unwatch(c, read);
-  unwatch(c, write);
+  ev_io_stop(c->loop, &c->read_watcher);
+  ev_io_stop(c->loop, &c->write_watcher);
   ev_timer_stop(c->loop, &c->timeout_watcher);
 
   close(c->fd);
