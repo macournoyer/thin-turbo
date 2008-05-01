@@ -2,8 +2,6 @@
 
 static VALUE buffer_to_ruby_obj(buffer_t *buf)
 {
-  /* TODO move values to static */
-  
   if (buffer_in_file(buf)) {
     /* close the fd and reopen in a Ruby File object */
     close(buf->file.fd);
@@ -11,10 +9,8 @@ static VALUE buffer_to_ruby_obj(buffer_t *buf)
     return rb_class_new_instance(1, &fname, rb_cFile);
     
   } else {
-    /* no ref to StringIO, redefine to get ref */
-    /* TODO if read_buffer empty use a generic empty StringIO ? */
-    VALUE cStringIO = rb_define_class("StringIO", rb_cData);
-    return rb_funcall(cStringIO, rb_intern("new"), 1, rb_str_new(buf->ptr, buf->len));
+    VALUE str = rb_str_new(buf->ptr, buf->len);
+    return rb_class_new_instance(1, &str, cStringIO);
     
   }
 }

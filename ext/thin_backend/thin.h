@@ -116,6 +116,7 @@ struct backend_s {
 
 #define log_errno(b) log_error(b, strerror(errno))
 
+extern VALUE cStringIO;
 extern VALUE sInternedCall;
 extern VALUE sInternedKeys;
 extern VALUE sRackInput;
