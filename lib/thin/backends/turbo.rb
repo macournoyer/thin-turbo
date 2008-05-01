@@ -26,8 +26,9 @@ module Thin
       attr_accessor :persistent_connection_count
       
       def initialize(host, port, options={})
-        @host = host
-        @port = port.to_i
+        @host    = host
+        @port    = port.to_i
+        @timeout = 30
       end
       
       def start

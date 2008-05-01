@@ -35,10 +35,6 @@
 /* initialize number of connections in the pool, will grow */
 #define CONNECTIONS_SIZE   100
 
-/* number of seconds before we give up reading/writing to a socket and close the connection
- * TODO make this configurable */
-#define CONNECTION_TIMEOUT 30.0
-
 /* when write buffer reach this size, it is sent right away, it controls the speed
  * at which a response is streamed. */
 #define STREAM_SIZE        1024
@@ -97,6 +93,7 @@ struct backend_s {
   size_t              thread_count;
   
   /* libev */
+  ev_tstamp           timeout;
   struct ev_loop     *loop;
   ev_io               accept_watcher;
   ev_idle             idle_watcher;

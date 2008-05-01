@@ -56,6 +56,7 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   DATA_GET(self, backend_t, backend);
   
   backend->app = rb_ivar_get(self, rb_intern("@app"));
+  backend->timeout = NUM2DBL(rb_ivar_get(self, rb_intern("@timeout")));
   backend->address = RSTRING_PTR(address);
   backend->port = FIX2INT(port);
   

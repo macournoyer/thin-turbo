@@ -112,6 +112,7 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->timeout_watcher.data = c;
   ev_io_init(&c->read_watcher, connection_readable_cb, c->fd, EV_READ);
   ev_io_init(&c->write_watcher, connection_writable_cb, c->fd, EV_WRITE);
+  ev_timer_init(&c->timeout_watcher, connection_timeout_cb, backend->timeout, backend->timeout);
   
   /* start event watchers */
   ev_timer_start(c->loop, &c->timeout_watcher);
@@ -172,8 +173,6 @@ void connections_push(backend_t *backend)
     
     buffer_init(&c->read_buffer);
     buffer_init(&c->write_buffer);
-    
-    ev_timer_init(&c->timeout_watcher, connection_timeout_cb, CONNECTION_TIMEOUT, CONNECTION_TIMEOUT);
     
     queue_push(&backend->connections, c);
   }
