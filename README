@@ -10,7 +10,7 @@ New and ultra-turbo-crazy-fast backend for Thin
 
 === Usage
 
- thin start -r lib/thin-turbo -b Thin::Backends::Turbo ...
+ thin start -r thin-turbo -b Thin::Backends::Turbo ...
 
 === License
 Ruby License, http://www.ruby-lang.org/en/LICENSE.txt.

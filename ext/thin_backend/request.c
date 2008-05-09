@@ -1,3 +1,16 @@
+/* Functions to handle the requesting of a resource, before the Rack application is called.
+ * Basically:
+ * 1) request_parse is called each time a chunk of data is red from the socket.
+ * 3) request_parse then parse the header into c->env, a Ruby hash.
+ * 4) When the header is all parsed, the body is stored into c->read_buffer.
+ * 5) c->read_buffer is converted into a Ruby class:
+ *    - StringIO if < BUFFER_MAX_LEN
+ *    - File if stored in a tempfile
+ * 6) The response is processed by calling response_process.
+ *
+ * Note that c->read_buffer is also used to store the header and then
+ * cleared before storing the body.
+ */
 #include "thin.h"
 
 static VALUE buffer_to_ruby_obj(buffer_t *buf)
@@ -53,7 +66,7 @@ void request_parse(connection_t *c, char *buf, int len)
     /* assign env[rack.input] */
     rb_hash_aset(c->env, sRackInput, buffer_to_ruby_obj(&c->read_buffer));
     
-    /* call the Rack app in a Ruby green thread */
-    rb_thread_create(response_process, (void*) c);
+    /* call the Rack app */
+    response_process(c);
   }
 }

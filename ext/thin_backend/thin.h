@@ -127,8 +127,9 @@ void connection_error(connection_t *c, const char *msg);
 void connection_errno(connection_t *c);
 void connection_close(connection_t *connection);
 
+/* request & response */
 void request_parse(connection_t *connection, char *buf, int len);
-VALUE response_process(connection_t *connection);
+void response_process(connection_t *connection);
 
 /* connections */
 void connections_init(backend_t *backend);

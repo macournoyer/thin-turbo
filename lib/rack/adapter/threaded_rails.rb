@@ -7,8 +7,6 @@ module Rack
       def initialize_with_mutex(*args)
         @mutex = Mutex.new
         initialize_without_mutex(*args)
-        
-        puts "using threaded rails"
       end
       alias_method :initialize_without_mutex, :initialize
       alias_method :initialize, :initialize_with_mutex

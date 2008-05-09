@@ -101,13 +101,11 @@ static void response_send_body(connection_t *c, VALUE body)
   }
 }
 
-VALUE response_process(connection_t *c)
+static VALUE response_run(connection_t *c)
 {
-  /* Call the app to process the request */
-  c->backend->thread_count++;
+  /* Call the app to process the request */  
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
-  c->backend->thread_count--;
-
+  
   if (response == Qundef) {
     /* log any error */
     rb_funcall(c->backend->obj, rb_intern("log_last_exception"), 0);
@@ -136,5 +134,14 @@ VALUE response_process(connection_t *c)
     
   }
   
+  c->backend->thread_count--;
+  
   return Qnil;
+}
+
+void response_process(connection_t *c)
+{
+  c->backend->thread_count++;
+  /* call the Rack app in a Ruby green thread */
+  rb_thread_create(response_run, (void*) c);
 }
