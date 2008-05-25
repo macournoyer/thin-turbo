@@ -1,12 +1,13 @@
-/* Functions to handle the requesting of a resource, before the Rack application is called.
- * Basically:
+/* Functions to handle an HTTP request, before the Rack application is called.
+ * Life of a request:
  * 1) request_parse is called each time a chunk of data is red from the socket.
  * 3) request_parse then parse the header into c->env, a Ruby hash.
  * 4) When the header is all parsed, the body is stored into c->read_buffer.
  * 5) c->read_buffer is converted into a Ruby class:
  *    - StringIO if < BUFFER_MAX_LEN
  *    - File if stored in a tempfile
- * 6) The response is processed by calling response_process.
+ *    and stored into c->env key "rack.input".
+ * 6) The response is processed by calling response_process (response.c).
  *
  * Note that c->read_buffer is also used to store the header and then
  * cleared before storing the body.

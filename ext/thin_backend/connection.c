@@ -1,3 +1,8 @@
+/* Functions to handle a connection to a client.
+ * backend.c calls connection_start when a new connection arrives.
+ * connection.c takes care of reading data to c->read_buffer
+ * and writing data from c->write_buffer.
+ */
 #include "thin.h"
 
 /* event callbacks */

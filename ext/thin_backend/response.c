@@ -1,3 +1,18 @@
+/* Functions to produce and send the HTTP response
+ * Life of a response:
+ * 1) response_process is called when the request is ready to be processed
+ * 2) A Ruby thread is created and response_run is called inside it.
+ * 3) response_run calls the Rack application (c->backend->app)
+ * 4) response_send_status, response_send_headers, response_send_body is called
+ *    when the response is received from the Rackk application.
+ * 5) Each of these 3 function call response_send_chunk w/ each chunk of data
+ *    that needs to be sent.
+ * 6) For each chunk of data in response_send_chunk:
+ *    - If the chunk is to big to fit in the send buffer, it's splitted in smaller ones
+ *    - If the send buffer is full, the event loop is called until space if available
+ *    - If the send buffer contains enought data we go for 1 iteration in the event loop
+ *      to stream the response.
+ */
 #include "thin.h"
 
 static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
