@@ -16,6 +16,12 @@ class App
   end
 end
 
+class DummyApp < App
+  def process(env)
+    ""    
+  end
+end
+
 class EchoApp < App
   def process(env)
     if env['REQUEST_METHOD'] == 'GET'

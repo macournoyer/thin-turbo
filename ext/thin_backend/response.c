@@ -4,13 +4,18 @@ static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
 {
   /* chunk too big, split it in smaller chunks and send each separately */
   if (len >= BUFFER_MAX_LEN) {
-    size_t i, size = BUFFER_MAX_LEN - 1, slices = len / size + 1;
+    size_t size   = BUFFER_MAX_LEN - 1;
+    size_t slices = len / size + 1;
+    size_t i, offset = 0;
     
     for (i = 0; i < slices; ++i) {
+      /* last slice can be smaller */
       if (i == slices - 1)
         size = len % size;
       
-      response_send_chunk(c, (char *) ptr + i * size, size);
+      response_send_chunk(c, (char *) ptr + offset, size);
+      
+      offset += size;      
     }
     
     return;
@@ -25,9 +30,8 @@ static void response_send_chunk(connection_t *c, const char *ptr, size_t len)
   /* If we have a good sized chunk of data to send, try to send it right away.
    * This allows streaming by going for a shot in the even loop to drain the buffer if possisble,
       this way, the chunk is sent if the socket is writable.*/
-  if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE) {
+  if (c->write_buffer.len - c->write_buffer.offset >= STREAM_SIZE)
     ev_loop(c->loop, EVLOOP_ONESHOT | EVLOOP_NONBLOCK);    
-  }
 }
 
 static void response_send_status(connection_t *c, const int status)

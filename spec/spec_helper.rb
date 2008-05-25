@@ -4,6 +4,7 @@ require File.dirname(__FILE__) + '/apps'
 require 'spec'
 require 'thread'
 require 'timeout'
+require 'digest/sha1'
 
 module ThinTurboServer
   ADDRESS = '0.0.0.0'
@@ -138,7 +139,15 @@ module HttpSpecDSL
     end
 end
 
+module Helpers
+  def rand_data(min, max=min)
+    count = min + ((rand(max)+1)).to_i
+    (Digest::SHA1.hexdigest(rand(count * 100).to_s) * (count / 39))[0, max]
+  end  
+end
+
 Spec::Runner.configure do |config|
   config.include ThinTurboServer
   config.include HttpSpecDSL
+  config.include Helpers
 end

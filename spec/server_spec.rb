@@ -29,9 +29,9 @@ describe Thin::Backends::Turbo, "server" do
       body.should == 'ohhithere!'
     end
   end
-    
+  
   it "should handle big body (stored in memory)" do
-    data = ['X' * 1024] * (80 + 31)
+    data = [rand_data(1024)] * (80 + 31)
     expected_size = data.join.size
     
     POST("/", data) do
@@ -45,7 +45,7 @@ describe Thin::Backends::Turbo, "server" do
   end
   
   it "should handle very big body (stored to tempfile)" do
-    data = ['X' * 1024] * 1024
+    data = [rand_data(1024)] * 1024
     expected_size = data.join.size
     
     POST("/", data) do
