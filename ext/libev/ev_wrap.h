@@ -13,6 +13,7 @@
 #define backend_fudge ((loop)->backend_fudge)
 #define backend_modify ((loop)->backend_modify)
 #define backend_poll ((loop)->backend_poll)
+#define evfd ((loop)->evfd)
 #define evpipe ((loop)->evpipe)
 #define pipeev ((loop)->pipeev)
 #define curpid ((loop)->curpid)
@@ -84,6 +85,7 @@
 #undef backend_fudge
 #undef backend_modify
 #undef backend_poll
+#undef evfd
 #undef evpipe
 #undef pipeev
 #undef curpid
