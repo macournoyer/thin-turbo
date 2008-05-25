@@ -1,6 +1,17 @@
 == Thin-Turbo
 New and ultra-turbo-crazy-fast backend for Thin
 
+This is an experimental backend for Thin (http://code.macournoyer.com/thin).
+It's a complete rewrite in C of the code handling the request and producing the response.
+Once this code is proved to be stable it will replace the current backend of Thin. For
+now it will be distributed as a separated gem and loaded as "plugin backend" (see Usage).
+
+Goals of this rewrite:
+* Be as fast as possible
+* Call Rack app in a thread
+* Remove dependency over EventMachine
+* Reduce memory usage
+
 === Installation
  
  sudo gem install thin
