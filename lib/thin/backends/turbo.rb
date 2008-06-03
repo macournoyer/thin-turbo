@@ -48,6 +48,8 @@ module Thin
       def config
         self.maxfds = @maximum_connections
         @maximum_connections = maxfds
+        
+        self.trace = Logging.trace?
       end
     
       def running?

@@ -13,10 +13,4 @@
 #define DATA_GET(from,type,name) Data_Get_Struct(from,type,name); RAISE_NOT_NULL(name);
 #define REQUIRE_TYPE(V, T) if(TYPE(V) != T) rb_raise(rb_eTypeError, "Wrong argument type for " # V " required " # T);
 
-#ifdef DEBUG
-#define trace(msg) fprintf(stderr, "[%s:%s:%d] %s\n", __FILE__, __FUNCTION__, __LINE__, msg)
-#else
-#define trace(msg) 
-#endif
-
 #endif

@@ -9,8 +9,7 @@
 
 static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
-  connection_t *c = get_ev_data(connection, watcher, write);
-  int           sent;
+  connection_t *c = get_ev_data(connection, watcher, write);  
   
   if (EV_ERROR & revents) {
     connection_error(c, "Error writing on connection socket");
@@ -20,11 +19,13 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   if (c->write_buffer.len == 0)
     return;
   
-  sent = send(c->fd,
-              (char *) c->write_buffer.ptr + c->write_buffer.offset,
-              c->write_buffer.len - c->write_buffer.offset,
-              0);
+  size_t sent;
+  size_t len = c->write_buffer.len - c->write_buffer.offset;
+  char  *buf = (char *) c->write_buffer.ptr + c->write_buffer.offset;
   
+  trace(c->backend, buf, len);
+  
+  sent = send(c->fd, buf, len, 0);
   ev_timer_again(c->loop, &c->timeout_watcher);
   
   if (sent < 0) {
@@ -39,7 +40,8 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
     /* if all the buffer is written we can clear it from memory */
     buffer_reset(&c->write_buffer);
     
-    /* we can stream the request, so do do close it unless it's marked */
+    /* we can stream the request, so do not close it unless it's marked
+     * as finished */
     if (c->finished)
       connection_close(c);
   }
@@ -54,7 +56,7 @@ void connection_watch_writable(connection_t *c)
 static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
 {
   connection_t *c = get_ev_data(connection, watcher, read);
-  size_t        n;
+  size_t        received;
   char          buf[BUFFER_CHUNK_SIZE];
   
   if (EV_ERROR & revents) {
@@ -62,21 +64,23 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
     return;
   }
   
-  n = recv(c->fd, buf, BUFFER_CHUNK_SIZE, 0);
+  received = recv(c->fd, buf, BUFFER_CHUNK_SIZE, 0);
   ev_timer_again(c->loop, &c->timeout_watcher);
   
-  if (n == -1) {
+  if (received == -1) {
     /* error, closing connection */
     connection_errno(c);
     return;
   }
   
-  if (n == 0) {
+  if (received == 0) {
     /* received 0 byte, read again next loop */
     return;
   }
   
-  request_parse(c, buf, n);
+  trace(c->backend, buf, received);
+  
+  request_parse(c, buf, received);
 }
 
 static void connection_timeout_cb(EV_P_ struct ev_timer *watcher, int revents)

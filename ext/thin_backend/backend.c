@@ -139,6 +139,16 @@ VALUE backend_close(VALUE self)
   return Qtrue;
 }
 
+VALUE backend_set_trace(VALUE self, VALUE state)
+{
+  backend_t *backend = NULL;
+  DATA_GET(self, backend_t, backend);
+  
+  backend->trace = (state == Qtrue);
+  
+  return state;
+}
+
 VALUE backend_set_maxfds(VALUE self, VALUE max)
 {
   struct rlimit rlim;
@@ -176,11 +186,22 @@ static void backend_free(backend_t *backend)
 VALUE backend_alloc(VALUE klass)
 {
   backend_t *backend = ALLOC_N(backend_t, 1);
-  VALUE obj = Data_Wrap_Struct(klass, NULL, backend_free, backend);
+  VALUE obj = Data_Wrap_Struct(klass, NULL, backend_free, backend);  
+  
+  backend->address = NULL;
+  backend->port    = 3000;
+  backend->fd      = -1;
+  backend->open    = 0;
+  
+  backend->trace   = 0;
+  
+  backend->obj     = obj;
+  backend->app     = Qnil;
   
   connections_init(backend);
+  backend->thread_count = 0;
   
-  backend->obj = obj;
+  backend->loop    = NULL;
   
   return obj;
 }
@@ -195,6 +216,7 @@ void backend_define(void)
   rb_define_protected_method(cBackend, "listen_on_port", backend_listen_on_port, 2);
   rb_define_protected_method(cBackend, "loop!", backend_loop, 0);
   rb_define_protected_method(cBackend, "close", backend_close, 0);
+  rb_define_protected_method(cBackend, "trace=", backend_set_trace, 1);
   rb_define_protected_method(cBackend, "maxfds=", backend_set_maxfds, 1);
   rb_define_protected_method(cBackend, "maxfds", backend_get_maxfds, 0);
 }

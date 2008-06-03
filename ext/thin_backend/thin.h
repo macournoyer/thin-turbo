@@ -81,8 +81,11 @@ struct backend_s {
   char               *address;
   unsigned            port;
   int                 fd;
-  unsigned            open;
+  unsigned            open : 1;
   struct sockaddr_in  local_addr;
+  
+  /* debugging */
+  unsigned            trace : 1;
   
   /* ruby */
   VALUE               obj; /* Ruby Backend object */
@@ -112,6 +115,8 @@ struct backend_s {
              rb_str_new2(__FUNCTION__), INT2FIX(__LINE__))
 
 #define log_errno(b) log_error(b, strerror(errno))
+
+#define trace(b, msg, len) if (b->trace) { rb_funcall(b->obj, rb_intern("trace"), 1, rb_str_new(msg, len)); }
 
 extern VALUE cStringIO;
 extern VALUE sInternedCall;
