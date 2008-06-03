@@ -27,14 +27,13 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   
   ev_timer_again(c->loop, &c->timeout_watcher);
   
-  if (sent >= 0) {
-    c->write_buffer.offset += sent;
-    
-  } else { /* sent < 0 => error */
+  if (sent < 0) {
+    /* error, closing connection */
     connection_errno(c);
     return;
-    
   }
+  
+  c->write_buffer.offset += sent;
   
   if (buffer_eof(&c->write_buffer)) {
     /* if all the buffer is written we can clear it from memory */
