@@ -12,6 +12,11 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
   connection_t *c = get_ev_data(connection, watcher, write);
   int           sent;
   
+  if (EV_ERROR & revents) {
+    connection_error(c, "Error writing on connection socket");
+    return;
+  }
+  
   if (c->write_buffer.len == 0)
     return;
   
@@ -44,6 +49,7 @@ static void connection_writable_cb(EV_P_ struct ev_io *watcher, int revents)
 void connection_watch_writable(connection_t *c)
 {
   ev_io_start(c->loop, &c->write_watcher);
+  ev_timer_start(c->loop, &c->timeout_watcher);
 }
 
 static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
@@ -51,6 +57,11 @@ static void connection_readable_cb(EV_P_ struct ev_io *watcher, int revents)
   connection_t *c = get_ev_data(connection, watcher, read);
   size_t        n;
   char          buf[BUFFER_CHUNK_SIZE];
+  
+  if (EV_ERROR & revents) {
+    connection_error(c, "Error reading on connection socket");
+    return;
+  }
   
   n = recv(c->fd, buf, BUFFER_CHUNK_SIZE, 0);
   ev_timer_again(c->loop, &c->timeout_watcher);
@@ -115,24 +126,13 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->read_watcher.data    = c;
   c->write_watcher.data   = c;
   c->timeout_watcher.data = c;
-  ev_io_init(&c->read_watcher, connection_readable_cb, c->fd, EV_READ);
-  ev_io_init(&c->write_watcher, connection_writable_cb, c->fd, EV_WRITE);
+  ev_io_init(&c->read_watcher, connection_readable_cb, c->fd, EV_READ | EV_ERROR);
+  ev_io_init(&c->write_watcher, connection_writable_cb, c->fd, EV_WRITE | EV_ERROR);
   ev_timer_init(&c->timeout_watcher, connection_timeout_cb, backend->timeout, backend->timeout);
   
   /* start event watchers */
   ev_timer_start(c->loop, &c->timeout_watcher);
   ev_io_start(c->loop, &c->read_watcher);
-}
-
-void connection_error(connection_t *c, const char *msg)
-{
-  log_error(c->backend, msg);
-  connection_close(c);
-}
-
-void connection_errno(connection_t *c)
-{
-  connection_error(c, strerror(errno));
 }
 
 void connection_close(connection_t *c)

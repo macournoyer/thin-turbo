@@ -62,6 +62,7 @@ void request_parse(connection_t *c, char *buf, int len)
   
   /* request fully received */
   if (http_parser_is_finished(&c->parser) && c->read_buffer.len >= c->content_length) {
+    ev_timer_stop(c->loop, &c->timeout_watcher);
     ev_io_stop(c->loop, &c->read_watcher);
     
     /* assign env[rack.input] */

@@ -1,2 +1,2 @@
 * BUG: hangs on file upload 1 time out of 2
-* disable timeout when calling the Rack app
+* BUG: crash in Rails multipart parsing on big file upload

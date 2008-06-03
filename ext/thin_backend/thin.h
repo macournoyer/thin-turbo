@@ -123,9 +123,10 @@ void backend_define(void);
 
 /* connection */
 void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr);
-void connection_error(connection_t *c, const char *msg);
-void connection_errno(connection_t *c);
 void connection_close(connection_t *connection);
+/* error handling macros (so we can get line number and stuff) */
+#define connection_error(c, msg) log_error((c)->backend, msg); connection_close(c)
+#define connection_errno(c) connection_error(c, strerror(errno))
 
 /* request & response */
 void request_parse(connection_t *connection, char *buf, int len);

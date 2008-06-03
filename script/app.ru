@@ -17,7 +17,7 @@ class App
   def call(env)
     sleep 10 if env['PATH_INFO'] == '/slow'
     
-    # puts env['rack.input'].read if env['CONTENT_LENGTH'].to_i > 0
+    puts env['rack.input'].read.size if env['CONTENT_LENGTH'].to_i > 0
     [
       200,
       {

@@ -9,6 +9,11 @@ static void backend_accept_cb(EV_P_ struct ev_io *watcher, int revents)
   socklen_t          sin_size = sizeof(remote_addr);
   int                fd, flags;
   
+  if (EV_ERROR & revents) {
+    rb_sys_fail("Error on acceptor socket");
+    return;
+  }
+  
   fd = accept(backend->fd, (struct sockaddr *)&remote_addr, &sin_size);
   if (fd == -1) {
     log_errno(backend);
@@ -83,7 +88,7 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   if (setsockopt(backend->fd, SOL_SOCKET, SO_REUSEADDR, &sock_flags, sizeof(sock_flags)) == -1)
     rb_sys_fail("setsockopt(SO_REUSEADDR)");
   
-  if (bind(backend->fd, (struct sockaddr *)&backend->local_addr, sizeof backend->local_addr) == -1)
+  if (bind(backend->fd, (struct sockaddr *)&backend->local_addr, sizeof(backend->local_addr)) == -1)
     rb_sys_fail("bind");
 
   if (listen(backend->fd, LISTEN_BACKLOG) == -1)
@@ -91,7 +96,7 @@ VALUE backend_listen_on_port(VALUE self, VALUE address, VALUE port)
   
   /* initialise watchers */
   backend->accept_watcher.data = backend;
-  ev_io_init(&backend->accept_watcher, backend_accept_cb, backend->fd, EV_READ);
+  ev_io_init(&backend->accept_watcher, backend_accept_cb, backend->fd, EV_READ | EV_ERROR);
   
   backend->prepare_watcher.data = backend;
   ev_prepare_init(&backend->prepare_watcher, backend_prepare_cb);
