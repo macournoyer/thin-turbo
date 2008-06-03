@@ -116,7 +116,7 @@ struct backend_s {
 
 #define log_errno(b) log_error(b, strerror(errno))
 
-#define trace(b, msg, len) if (b->trace) { rb_funcall(b->obj, rb_intern("trace"), 1, rb_str_new(msg, len)); }
+#define trace(b, msg, len) if (b->trace) { write(2, msg, len); }
 
 extern VALUE cStringIO;
 extern VALUE sInternedCall;
