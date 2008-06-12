@@ -153,6 +153,7 @@ static VALUE response_run(connection_t *c)
     
   }
   
+  c->thread.active = 0;
   c->backend->thread_count--;
   
   return Qnil;
@@ -162,5 +163,6 @@ void response_process(connection_t *c)
 {
   c->backend->thread_count++;
   /* call the Rack app in a Ruby green thread */
-  rb_thread_create(response_run, (void*) c);
+  c->thread.active = 1;
+  c->thread.obj = rb_thread_create(response_run, (void*) c);
 }

@@ -65,6 +65,10 @@ struct connection_s {
   /* response */
   buffer_t            write_buffer;
   unsigned            finished : 1;
+  struct {
+    VALUE             obj;
+    unsigned          active : 1;
+  } thread;
   
   /* backend */
   backend_t          *backend;

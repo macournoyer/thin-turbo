@@ -110,6 +110,8 @@ void connection_start(backend_t *backend, int fd, struct sockaddr_in remote_addr
   c->content_length = 0;
   c->fd             = fd;
   c->remote_addr    = inet_ntoa(remote_addr.sin_addr);
+  c->thread.obj     = Qnil;
+  c->thread.active  = 0;
   
   /* mark as used to Ruby GC */
   c->env = rb_hash_new();
@@ -143,6 +145,7 @@ void connection_close(connection_t *c)
   ev_timer_stop(c->loop, &c->timeout_watcher);
 
   close(c->fd);
+  shutdown(c->fd, SHUT_RDWR);
   
   buffer_reset(&c->read_buffer);
   buffer_reset(&c->write_buffer);
@@ -151,7 +154,9 @@ void connection_close(connection_t *c)
   rb_gc_unregister_address(&c->env);
   rb_gc_unregister_address(&c->input);
   
-  /* TODO maybe kill the thread also: rb_thread_kill(c->thread) */
+  /* kill the thread if still running */
+  if (c->thread.active)
+    rb_thread_kill(c->thread.obj);
   
   /* put back in the queue of unused connections */
   queue_push(&c->backend->connections, c);
