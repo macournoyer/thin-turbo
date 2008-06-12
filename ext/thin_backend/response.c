@@ -124,11 +124,12 @@ static VALUE response_run(connection_t *c)
 {
   /* Call the app to process the request */  
   VALUE response = rb_funcall_rescue(c->backend->app, sInternedCall, 1, c->env);
+  unsigned sent = 0;
   
   if (response == Qundef) {
     /* log any error */
     rb_funcall(c->backend->obj, rb_intern("log_last_exception"), 0);
-    connection_close(c);
+    sent = 1;
     
   } else {
     /* store response info and prepare for writing */
@@ -149,12 +150,15 @@ static VALUE response_run(connection_t *c)
     c->finished = 1;
     
     if (buffer_eof(&c->write_buffer))
-      connection_close(c);
+      sent = 1;
     
   }
   
-  c->thread.active = 0;
   c->backend->thread_count--;
+  c->thread.active = 0;
+  
+  if (sent)
+    connection_close(c);
   
   return Qnil;
 }

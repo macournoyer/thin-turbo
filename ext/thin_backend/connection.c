@@ -155,8 +155,10 @@ void connection_close(connection_t *c)
   rb_gc_unregister_address(&c->input);
   
   /* kill the thread if still running */
-  if (c->thread.active)
+  if (c->thread.active) {
+    c->backend->thread_count--;
     rb_thread_kill(c->thread.obj);
+  }
   
   /* put back in the queue of unused connections */
   queue_push(&c->backend->connections, c);

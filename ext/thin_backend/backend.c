@@ -133,6 +133,7 @@ VALUE backend_close(VALUE self)
   if (backend->open) {
     backend->open = 0;
     ev_io_stop(backend->loop, &backend->accept_watcher);
+    shutdown(backend->fd, SHUT_RDWR);
     close(backend->fd);
   }
   
